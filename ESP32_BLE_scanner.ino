@@ -11,7 +11,7 @@
  * 
  * if you want ro re-config value in web
  * the username is admin / the password you change already at 1st time config
- * 
+ * https://bbs.hassbian.com/thread-6472-1-1.html
  * HA is home-assistant https://www.home-assistant.io/
  * ==============================================================================================================================
  */
@@ -537,7 +537,7 @@ Serial.println("' , 0 is 'mqtt server connected'");
       // The else function will run after finishing config in web
       Serial.println("not found!");
       }
-      if ((runcount % 100) == 0){
+      if ((runcount % 100) == 0 || runcount == 0){
           Serial.println("ESP32_BLE alive");
           connectMQTT();
           //Set the time+ip to mqtt topic "ESPipTOPIC"

@@ -8,7 +8,7 @@ Refer list:</br>
   </br>
  I add some code to more easy using for mqtt sensor by windgo@gmail.com</br>
  </br>
- follow discuss link https://bbs.hassbian.com/thread-2330-1-1.html</br>
+ follow discuss link https://bbs.hassbian.com/thread-6472-1-1.html</br>
  HA is home-assistant https://www.home-assistant.io/</br>
 </br>
 ==Arduino編譯所需相關庫安裝==</br>

@@ -30,6 +30,4 @@ setup.mp4 : ESP32_BLE scanner setup video
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/miband_1.png)   
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/miband_2.png)   
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/miband_3.png)   
-![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/oe_ibeacon.png)   
-![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/miband_1.png)   
-      
+![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/oe_ibeacon.png)  

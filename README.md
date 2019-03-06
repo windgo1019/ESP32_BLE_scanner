@@ -8,8 +8,8 @@ Refer list:
    
  I add some code to more easy using for mqtt sensor by windgo@gmail.com  
    
- follow discuss link https://bbs.hassbian.com/thread-6472-1-1.html  
- HA is home-assistant https://www.home-assistant.io/  
+ [follow discuss link](https://bbs.hassbian.com/thread-6472-1-1.html)  
+ HA is [home-assistant](https://www.home-assistant.io/)    
   
 ==Arduino編譯所需相關庫安裝==  
 1.參考這篇加入ESP32開發板相關庫  

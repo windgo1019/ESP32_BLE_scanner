@@ -11,6 +11,7 @@
  * 
  * if you want ro re-config value in web
  * the username is admin / the password you change already at 1st time config
+ * https://bbs.hassbian.com/thread-6670-1-1.html
  * https://bbs.hassbian.com/thread-6472-1-1.html
  * HA is home-assistant https://www.home-assistant.io/
  * ==============================================================================================================================
@@ -24,11 +25,15 @@ https://github.com/espressif/arduino-esp32/blob/master/docs/arduino-ide/boards_m
 4.在Arduino工具列內的Sketch-->Include library-->Manage Libraries-->搜尋eztime並安裝
 
 未來預計加入:
-1.加入subscribe功能來操控ESP
-
+1.加入MQTT subscribe功能來操控ESP
+2.語言選擇
+==3.利用console控制（或GPIO）
+  GPIO 1:TX
+  GPIO 3:RX
+==4.加入可一次偵測多個BLE裝置（目前一次掃描只能找到一個）  
+==5.加入調整mqtt功能
+=6.多餘程式碼轉成function
 */
-//save value
-//#include <EEPROM.h>
 
 //NTP2+IP
 #include <ezTime.h>
@@ -43,6 +48,7 @@ char ipchar[0];
 boolean needReset = false;
 int state = HIGH;
 int notifysw = HIGH;
+//#define CONFIG_PIN 21
 
 //bt check
 //#include "nvs.h"
@@ -57,7 +63,7 @@ const char wifiInitialApPassword[] = "configesp";
 #define STRING_LEN 96
 #define NUMBER_LEN 16
 // -- Configuration specific key. The value should be modified if config structure was changed.
-#define CONFIG_VERSION "20190228v1"
+#define CONFIG_VERSION "0002"
 
 // -- Callback method declarations.
 void configSaved();
@@ -75,12 +81,17 @@ char PAYLOAD1[STRING_LEN];
 char blemac1[STRING_LEN];
 char PAYLOAD2[STRING_LEN];
 char blemac2[STRING_LEN];
+char PAYLOAD3[STRING_LEN];
+char blemac3[STRING_LEN];
+char PAYLOAD4[STRING_LEN];
+char blemac4[STRING_LEN];
 //char PAYLOAD3[STRING_LEN];
 //char mqtt_port[NUMBER_LEN];
 char ble_scantime[NUMBER_LEN];
 char ble_rssi[NUMBER_LEN];
 //char ESPipTOPIC[STRING_LEN];
 //char ESPtestmodeTOPIC[STRING_LEN];
+//char ESPmode[NUMBER_LEN];
 
 IotWebConf iotWebConf(thingName, &dnsServer, &server, wifiInitialApPassword, CONFIG_VERSION);
 //IotWebConfParameter stringParam = IotWebConfParameter("String param", "stringParam", stringParamValue, STRING_LEN);
@@ -96,12 +107,18 @@ IotWebConfParameter blemac1_arg = IotWebConfParameter("BLE Device1 MAC(ex: c3:27
 IotWebConfParameter PAYLOAD1_arg = IotWebConfParameter("BLE Device1 Name in HA(ex: windgo)", "PAYLOAD1", PAYLOAD1, STRING_LEN);
 IotWebConfParameter blemac2_arg = IotWebConfParameter("BLE Device2 MAC(ex: e5:ce:b4:9b:f5:bb)", "BLE Device2 MAC", blemac2, STRING_LEN);
 IotWebConfParameter PAYLOAD2_arg = IotWebConfParameter("BLE Device2 Name in HA(ex: doris)", "PAYLOAD2", PAYLOAD2, STRING_LEN);
+IotWebConfParameter blemac3_arg = IotWebConfParameter("BLE Device3 MAC(ex: 02:e1:c8:39:4e:fb)", "BLE Device3 MAC", blemac3, STRING_LEN);
+IotWebConfParameter PAYLOAD3_arg = IotWebConfParameter("BLE Device3 Name in HA(ex: windgo2)", "PAYLOAD3", PAYLOAD3, STRING_LEN);
+IotWebConfParameter blemac4_arg = IotWebConfParameter("BLE Device4 MAC(ex: 70:05:70:3f:d4:2d)", "BLE Device4 MAC", blemac4, STRING_LEN);
+IotWebConfParameter PAYLOAD4_arg = IotWebConfParameter("BLE Device4 Name in HA(ex: doris2)", "PAYLOAD4", PAYLOAD4, STRING_LEN);
+
 //IotWebConfParameter PAYLOAD3_arg = IotWebConfParameter("MQTT checking PAYLOAD3(ex : checking)", "MQTT checking PAYLOAD3", PAYLOAD3, STRING_LEN);
 //IotWebConfParameter mqtt_port_arg = IotWebConfParameter("MQTT port(ex: 1883)", "MQTT port", mqtt_port, NUMBER_LEN, "number", "1 ~ 65535", NULL, "min='1' max='65535' step='1'");
 IotWebConfParameter ble_scantime_arg = IotWebConfParameter("BLE_scantime(secs,ex: 4)", "BLE_scantime", ble_scantime, NUMBER_LEN, "number", "1 ~ 65535", NULL, "min='1' max='65535' step='1'");
 IotWebConfParameter ble_rssi_arg = IotWebConfParameter("BLE_rssi(ex: -85)", "BLE_rssi", ble_rssi, NUMBER_LEN, "number", "-100 ~ -20", NULL, "min='-100' max='-20' step='1'");
 //IotWebConfParameter ESPipTOPIC_arg = IotWebConfParameter("MQTT ESPip publish TOPIC(ex: /ESP32_BLE/ble/ip)", "MQTT ESPip publish TOPIC", ESPipTOPIC, STRING_LEN);
 //IotWebConfParameter ESPtestmodeTOPIC_arg = IotWebConfParameter("MQTT ESPtestmode success rate publish TOPIC(ex: /ESP32_BLE/ble/testmode_success_rate)", "MQTT ESPtestmode success rate publish TOPIC", ESPtestmodeTOPIC, STRING_LEN);
+//IotWebConfParameter ESPmode_arg = IotWebConfParameter("ESPmode(ex: 2)", "ESPmode", ESPmode, NUMBER_LEN, "number", "1:WIFI+BLE, 2:BLE", NULL, "min='1' max='2' step='1'");
 
 #include "BLEDevice.h"
 #include <WiFi.h>
@@ -117,12 +134,14 @@ unsigned long entry;
 #define LED 22
 //定義想要搜尋到的BLE裝置數量(非一般手機藍芽，藍芽4.0以上裝置才支援BLE功能，並且需打開藍芽廣播功能)
 //String knownAddresses[] = { "c3:27:9f:d1:44:22", "e5:ce:b4:9b:f5:bb"}; // change for your ble device mac, not "bt" mac! you can use xiaomi sport app to see the miband ble mac
-String knownAddresses[2]; // change for your ble device mac, not "bt" mac! you can use xiaomi sport app to see the miband ble mac
+String knownAddresses[4]; // change for your ble device mac, not "bt" mac! you can use xiaomi sport app to see the miband ble mac
 
 //int ble_scantime = 5;  // change for your ble scan time
 //int ble_rssi = -85;  // change for your ble device rssi (signal strength) , you can say that the device was found.
 //const char* wifissid = "your_wifi_ssid"; // change for your wifi ssid
 //const char* wifipassword = "your_wifi_password"; // change for your wifi password
+char wifissid;
+char wifipassword;
 //const char* mqtt_server = "192.168.1.105";  // change for your own MQTT broker address
 //const char* mqtt_user = "mqtt";  // change if you have MQTT user, and remove mark "//    if (client.connect(mqtt_clientid.c_str(), mqtt_user, mqtt_password)) {"  and mark  "if (client.connect(mqtt_clientid.c_str())) {" 
 //const char* mqtt_password = "mqtt";  // change if your have MQTT password
@@ -131,13 +150,19 @@ String knownAddresses[2]; // change for your ble device mac, not "bt" mac! you c
 //const char* TOPIC = "/ESP32_BLE/ble";  // Change for your own topic
 //const char* ESPipTOPIC = "/ESP32_BLE/ble/ip" ;
 //const char* ESPtestmodeTOPIC = "/ESP32_BLE/ble/testmode_success_rate" ;
-char* TOPIC;  // Change for your own topic
-char* ESPipTOPIC;
-char* ESPtestmodeTOPIC;
-const char* PAYLOAD3 = "checking";    // change for your search status when not find ble device
+//char TOPIC;  // Change for your own topic
+//char ESPipTOPIC;
+//char ESPname3;
+//char ESPname4;
+//char* ESPtestmodeTOPIC;
+const char* PAYLOAD0 = "checking";    // change for your search status when not find ble device
 //const char* PAYLOAD1 = "windgo";    // change for your search status when your find the 1st ble device
 //const char* PAYLOAD2 = "doris";    // change for your search status when your find the 2st ble device
-const char* bleman;    // bleman is the person was found
+//const char* bleman;    // bleman is the person was found
+const char* bleman1;    // bleman is the person was found
+const char* bleman2;    // bleman is the person was found
+const char* bleman3;    // bleman is the person was found
+const char* bleman4;    // bleman is the person was found
 int runcount = 1; // count how many time to scan ble device
 //int scantime = 1; //when scantime=100(no find ble device) , mqtt publish to server to know esp is alive
 //int total_runcount; // count scan ble device times
@@ -146,9 +171,13 @@ int runcount = 1; // count how many time to scan ble device
 String time1; //ESP32 time
 int findtime = 0; //count how many time to find ble device
 String action; // for web buttom status check
-boolean testmode = false; // enter BLE testmod if true
+int testmode = 2; // enter BLE testmod if true
+int testfindtime = 0; //for BLE testmode
+
 //int testcount = 1; //for BLE testmode
 //int testfindtime = 0; //for BLE testmode
+//String readfromSerial;
+int deviceFoundNum;
 
 /*
 Add below in your configuration.yaml and make sure your mqtt server is alive
@@ -163,11 +192,6 @@ sensor:
     name: "ESP32_BLE1_ip"
     state_topic: "/ESP32_BLE/ble/ip"
     value_template: '{{ value }}'
-  - platform: mqtt
-    name: "ESP32_testmode_findtime_percent"
-    state_topic: "/ESP32_BLE/ble/testmode_success_rate"
-    value_template: '{{ value }} '
-    unit_of_measurement: "%"
  */
 
 WiFiClient espClient;
@@ -198,22 +222,28 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
       bool known = false;
       for (int i = 0; i < (sizeof(knownAddresses) / sizeof(knownAddresses[0])); i++) {
         if (strcmp(pServerAddress->toString().c_str(), knownAddresses[i].c_str()) == 0) known = true;
-//        if (strcmp(pServerAddress->toString().c_str(), knownAddresses[0].c_str()) == 0) bleman = "windgo";
-//        if (strcmp(pServerAddress->toString().c_str(), knownAddresses[1].c_str()) == 0) bleman = "doris";
-        if (strcmp(pServerAddress->toString().c_str(), knownAddresses[0].c_str()) == 0) bleman = PAYLOAD1;
-        if (strcmp(pServerAddress->toString().c_str(), knownAddresses[1].c_str()) == 0) bleman = PAYLOAD2;
 
+//        if (strcmp(pServerAddress->toString().c_str(), knownAddresses[0].c_str()) == 0) bleman = PAYLOAD1;
+//        if (strcmp(pServerAddress->toString().c_str(), knownAddresses[1].c_str()) == 0) bleman = PAYLOAD2;
+        if (strcmp(pServerAddress->toString().c_str(), knownAddresses[0].c_str()) == 0) bleman1 = PAYLOAD1;
+        if (strcmp(pServerAddress->toString().c_str(), knownAddresses[1].c_str()) == 0) bleman2 = PAYLOAD2;
+        if (strcmp(pServerAddress->toString().c_str(), knownAddresses[2].c_str()) == 0) bleman3 = PAYLOAD3;
+        if (strcmp(pServerAddress->toString().c_str(), knownAddresses[3].c_str()) == 0) bleman4 = PAYLOAD4;
       }
       
       if (known) {
+        Serial.println("**********************************");
         Serial.print("BLE device RSSI: ");
         Serial.println(advertisedDevice.getRSSI());
         Serial.print("Device found: ");
-        if (advertisedDevice.getRSSI() > atoi(ble_rssi)) deviceFound = true;
+//        if (advertisedDevice.getRSSI() > atoi(ble_rssi)) deviceFound = true;
+//        else deviceFound = false;
+        if (advertisedDevice.getRSSI() > atoi(ble_rssi)) { deviceFound = true; deviceFoundNum += 1;}
         else deviceFound = false;
         
         Serial.println(pServerAddress->toString().c_str());
-        advertisedDevice.getScan()->stop();
+        Serial.println("**********************************");
+        //advertisedDevice.getScan()->stop();
       }
     }
 };
@@ -221,6 +251,7 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 void setup() {
   Serial.begin(115200);
   pinMode(LED, OUTPUT);     // Initialize the LED pin as an output
+//  pinMode(CONFIG_PIN, INPUT);     // Initialize the LED pin as an output
   digitalWrite(LED, LOW);
 
 //TOPIC
@@ -229,19 +260,28 @@ void setup() {
 //char* TOPIC;
 //char* ESPipTOPIC;
 //char* ESPtestmodeTOPIC;
+/*
+Serial.println("1");
+setTopic();
+Serial.println(TOPIC);
+Serial.println(ESPipTOPIC);
+Serial.println(ESPtestmodeTOPIC);
+*/
+Serial.println("");
+Serial.println("");
+
 String ESPname1 = "/" + String(iotWebConf.getThingName()) + "/ble";
 String ESPname2 = "/" + String(iotWebConf.getThingName()) + "/ble/ip";
-String ESPname3 = "/" + String(iotWebConf.getThingName()) + "/ble/testmode_success_rate";
-char ESPname4[ESPname1.length()+1];
-char ESPname5[ESPname2.length()+1];
-char ESPname6[ESPname3.length()+1];
-ESPname1.toCharArray(ESPname4,ESPname1.length()+1);
-ESPname2.toCharArray(ESPname5,ESPname2.length()+1);
-ESPname3.toCharArray(ESPname6,ESPname3.length()+1);
-TOPIC = ESPname4;
-ESPipTOPIC = ESPname5;
-ESPtestmodeTOPIC = ESPname6;
-
+char ESPname3[ESPname1.length()+1];
+char ESPname4[ESPname2.length()+1];
+ESPname1.toCharArray(ESPname3,ESPname1.length()+1);
+ESPname2.toCharArray(ESPname4,ESPname2.length()+1);
+char* TOPIC = ESPname3;
+char* ESPipTOPIC = ESPname4;
+//Serial.println(TOPIC);
+//Serial.println(String(TOPIC).length());
+//Serial.println(ESPipTOPIC);
+//Serial.println(String(ESPipTOPIC).length());
 
   BLEDevice::init("");
   pClient  = BLEDevice::createClient();
@@ -251,7 +291,7 @@ ESPtestmodeTOPIC = ESPname6;
   pBLEScan->setActiveScan(true);
 
 //ota
-
+//  iotWebConf.setConfigPin(CONFIG_PIN);
   iotWebConf.setupUpdateServer(&httpUpdater);
   iotWebConf.addParameter(&separator1);
   iotWebConf.addParameter(&mqtt_server_arg);
@@ -265,10 +305,15 @@ ESPtestmodeTOPIC = ESPname6;
   iotWebConf.addParameter(&PAYLOAD1_arg);
   iotWebConf.addParameter(&blemac2_arg);
   iotWebConf.addParameter(&PAYLOAD2_arg);
+  iotWebConf.addParameter(&blemac3_arg);
+  iotWebConf.addParameter(&PAYLOAD3_arg);
+  iotWebConf.addParameter(&blemac4_arg);
+  iotWebConf.addParameter(&PAYLOAD4_arg);    
   //iotWebConf.addParameter(&PAYLOAD3_arg);
   //iotWebConf.addParameter(&mqtt_port_arg);
   iotWebConf.addParameter(&ble_scantime_arg);
   iotWebConf.addParameter(&ble_rssi_arg);
+//  iotWebConf.addParameter(&ESPmode_arg);    
   iotWebConf.setConfigSavedCallback(&configSaved);
   iotWebConf.setFormValidator(&formValidator);
   iotWebConf.getApTimeoutParameter()->visible = true;
@@ -279,21 +324,70 @@ ESPtestmodeTOPIC = ESPname6;
   server.on("/config", []{ iotWebConf.handleConfig(); });
   server.onNotFound([](){ iotWebConf.handleNotFound(); });
   Serial.println("Web Ready.");
-  
-//save value
-//EEPROM.begin(200);
- 
+  Serial.println("");
+  Serial.println("Please connect the ESP32_BLE AP to config it!"); 
 
+// Serial.println(String(iotWebConf.getWifiSsid()).length());
+// Serial.println(String(iotWebConf.getWifiPassword()).length());
 
-  while (WiFi.status() != WL_CONNECTED) {
-  iotWebConf.doLoop();
+ if (String(iotWebConf.getWifiSsid()).length() < 1 ){  
+   //WiFi.softAP(thingName, wifiInitialApPassword);
+   while (String(iotWebConf.getWifiSsid()).length() < 1 ){
+     iotWebConf.doLoop();
+     checkconsole();
+  if (needReset || int(ESP.getFreeHeap()) < 45000 )
+    {
+    Serial.print("FreeMEM:");
+    Serial.println(int(ESP.getFreeHeap()));
+    Serial.print("needReset:");
+    Serial.println(needReset);
+    Serial.println("Rebooting after 1 second.");
+    Serial.println("");
+    delay(1000);
+    ESP.restart();
+    }
+   }
+ }
+// }
+ else {
+      Serial.print("1st time to connect wifi");
+      WiFi.mode(WIFI_STA);
+      WiFi.begin(iotWebConf.getWifiSsid(), iotWebConf.getWifiPassword());
+      int i=0;
+      while (WiFi.status() != WL_CONNECTED && testmode != 0) {
+        delay(100);
+        checkconsole();
+        Serial.print(".");
+        i++;
+        //Try reconnect wifi every 10 secs
+        if (i % 100 == 0 ){
+           WiFi.mode(WIFI_STA);
+           WiFi.begin(iotWebConf.getWifiSsid(), iotWebConf.getWifiPassword());
+        }
+        if (i == 601 ){
+           Serial.println("Connecting wifi fail, ESP restart");
+           delay(100);
+           ESP.restart();
+        }
+       }
+
+       if (testmode != 0){
+       Serial.println("connected");
+       }
+ }
+ while (WiFi.status() != WL_CONNECTED && testmode != 0) {
+  checkconsole();
   delay(100);
-  }
+}
+//  delay(100);
+ if (testmode != 0) {
   Serial.println("");
   Serial.print("ESP32 get ip : ");
   Serial.println(WiFi.localIP());  
+}
 
-  blinkled();    
+  blinkled();
+if (testmode !=0 ){  
 //NTP2
   waitForSync();
   myTZ.setLocation(F("Asia/Taipei"));
@@ -306,7 +400,7 @@ ESPtestmodeTOPIC = ESPname6;
   String(myTZ.dateTime("Y-m-d H:i:s")).toCharArray(time2,String(myTZ.dateTime("Y-m-d H:i:s")).length()+1);
   strcat( time2, " : " );
   strcat( time2, ipchar );
-  Serial.println(time2);    
+  Serial.println(time2);  
   //initial mqtt
 //    mqtt_clientid += String(random(0xffff), HEX);
     client.setServer(mqtt_server, 1883);
@@ -318,34 +412,70 @@ ESPtestmodeTOPIC = ESPname6;
     connectMQTT();
     client.publish(TOPIC, "ESP32_BLE alive", false);
     delay(100);
-    client.publish(TOPIC, PAYLOAD3, false);
-    delay(100);    
+    client.publish(TOPIC, PAYLOAD0, false);
+    delay(100); 
     client.publish(ESPipTOPIC, time2, false);
     client.disconnect();
-
-    Serial.println(); 
-    Serial.println(); 
-    Serial.println("Please connect the ESP32_BLE AP to config it!"); 
-    
+    Serial.println("ESP32_BLE alive");
+    if (client.connected()){
+    Serial.println("Send MQTT...done");     
+    }
+}
+//    Serial.println(); 
+//    Serial.println(); 
+//    Serial.println("Please connect the ESP32_BLE AP to config it!");
+    if (testmode != 0){ 
+//    testmode = atoi(ESPmode);
+    }    
 }
 
 void loop() {
   
 //reboot after configing 設定存檔或按鈕後重開ESP32
-  if (needReset || int(ESP.getFreeHeap()) < 43500 )
+  if (int(ESP.getFreeHeap() - 45000) < 0)
   {
-    Serial.println("Rebooting after 1 second.");
+    Serial.print("FreeMEM:");
+    Serial.println(int(ESP.getFreeHeap() - 45000));
+    Serial.print("needReset: ");
+    Serial.println(needReset);
+//    Serial.print("int(ESP.getFreeHeap() - 45000) < 0: ");
+//    Serial.println(int(ESP.getFreeHeap() - 45000));
+    Serial.print("(needReset || int(ESP.getFreeHeap()) - 45000) < 0): ");
+    Serial.println((needReset || int(ESP.getFreeHeap() - 45000) < 0));
+    Serial.print("needReset: ");
+    Serial.println(needReset);
+    Serial.println("Less MEM rebooting after 1 second.");
     Serial.println("");
-    iotWebConf.delay(1000);
+    delay(1000);
     ESP.restart();
   }
 
+  if (needReset)
+  {
+    Serial.print("FreeMEM:");
+    Serial.println(int(ESP.getFreeHeap() - 45000));
+    Serial.print("needReset: ");
+    Serial.println(needReset);
+//    Serial.print("int(ESP.getFreeHeap() - 45000) < 0: ");
+//    Serial.println(int(ESP.getFreeHeap() - 45000));
+    Serial.print("(needReset || int(ESP.getFreeHeap()) - 45000) < 0): ");
+    Serial.println((needReset || int(ESP.getFreeHeap() - 45000) < 0));
+    Serial.print("needReset: ");
+    Serial.println(needReset);
+    Serial.println("needReset rebooting after 1 second.");
+    Serial.println("");
+    delay(1000);
+    ESP.restart();
+  }
 
 //set BLE devices mac list if need update
-if (knownAddresses[0] !=blemac1 || knownAddresses[1] != blemac2 )
+if (knownAddresses[0] !=blemac1 || knownAddresses[1] != blemac2 || knownAddresses[2] != blemac3 || knownAddresses[3] != blemac4 )
 {
  knownAddresses[0] = blemac1;
  knownAddresses[1] = blemac2;
+ knownAddresses[2] = blemac3;
+ knownAddresses[3] = blemac4;
+
 }  
 
 /*
@@ -353,83 +483,171 @@ char* TOPIC;
 char* ESPipTOPIC;
 char* ESPtestmodeTOPIC;
 */
+//Serial.println("2");
+//Serial.println(TOPIC);
+//Serial.println(ESPipTOPIC);
 String ESPname1 = "/" + String(iotWebConf.getThingName()) + "/ble";
 String ESPname2 = "/" + String(iotWebConf.getThingName()) + "/ble/ip";
-String ESPname3 = "/" + String(iotWebConf.getThingName()) + "/ble/testmode_success_rate";
-char ESPname4[ESPname1.length()+1];
-char ESPname5[ESPname2.length()+1];
-char ESPname6[ESPname3.length()+1];
-ESPname1.toCharArray(ESPname4,ESPname1.length()+1);
-ESPname2.toCharArray(ESPname5,ESPname2.length()+1);
-ESPname3.toCharArray(ESPname6,ESPname3.length()+1);
-TOPIC = ESPname4;
-ESPipTOPIC = ESPname5;
-ESPtestmodeTOPIC = ESPname6;
+char ESPname3[ESPname1.length()+1];
+char ESPname4[ESPname2.length()+1];
+ESPname1.toCharArray(ESPname3,ESPname1.length()+1);
+ESPname2.toCharArray(ESPname4,ESPname2.length()+1);
+char* TOPIC = ESPname3;
+char* ESPipTOPIC = ESPname4;
+//Serial.println(TOPIC);
+//Serial.println(ESPipTOPIC);
 
+/*
+Serial.println("2");
+setTopic();
+Serial.println(TOPIC);
+Serial.println(ESPipTOPIC);
+Serial.println(ESPtestmodeTOPIC);
+*/
+checkconsole();
 
 //Enter testmode
-if (testmode){
- Serial.println("");  
+if (testmode == 2 ){   
  Serial.println("");  
  Serial.println("Starting BLE testmode");  
+ if (testmode != 0){
+ Serial.println(""); 
  WiFi.mode(WIFI_OFF);
-int testcount = 1; //for BLE testmode
-int testfindtime = 0; //for BLE testmode
- while (int(ESP.getFreeHeap()) > 43500) {
-   Serial.println("");  
+ Serial.println("**************Turn off WIFI**************"); 
+ Serial.println("");
+ }
+
+
+  int testcount = 1; //for BLE testmode
+ while (int(ESP.getFreeHeap()) > 45000 && testmode == 2 ) {
+
+    if ((testcount % 200 ) == 0 && testmode != 0 ){
+     setupwifi();     
+     String ipaddress = WiFi.localIP().toString();
+     char ipchar[ipaddress.length()+1];
+     ipaddress.toCharArray(ipchar,ipaddress.length()+1);
+     time1 = String(myTZ.dateTime("Y-m-d H:i:s"));
+     char time2[String(myTZ.dateTime("Y-m-d H:i:s")).length()+1];
+     String(myTZ.dateTime("Y-m-d H:i:s")).toCharArray(time2,String(myTZ.dateTime("Y-m-d H:i:s")).length()+1);
+     strcat( time2, " : " );
+     strcat( time2, ipchar );
+     connectMQTT();
+     //Set the time+ip to mqtt topic "ESPipTOPIC"
+     client.publish(ESPipTOPIC, time2, false);
+     delay(100);
+     client.publish(TOPIC, "ESP32_BLE alive", false);
+     delay(100);
+     client.publish(TOPIC, PAYLOAD0, false);         
+     delay(100);
+     client.disconnect();
+     if (testmode != 0){
+     Serial.println(""); 
+     WiFi.mode(WIFI_OFF);
+     Serial.println("**************Turn off WIFI**************");
+     Serial.println(""); 
+     }
+     Serial.println("ESP32_BLE alive");
+     if (client.connected()){
+     Serial.println("Send MQTT...done");     
+     }     
+    }
+       
+   Serial.println("");
+   Serial.println("BLE mode");  
    Serial.println(myTZ.dateTime("Y-m-d H:i:s"));
    Serial.print("Free memory : "); 
-   Serial.print(int(ESP.getFreeHeap()) - 43500);
+   Serial.print(int(ESP.getFreeHeap()) - 45000);
    Serial.println(" ,reboot when Free memory < 0");
    Serial.print("BLE Device1 MAC : ");
    Serial.println(knownAddresses[0]); // should be same with blemac1
    Serial.print("BLE Device2 MAC : ");
    Serial.println(knownAddresses[1]); // should be same with blemac2 
-//   Serial.print("Finish test after ");
-//   Serial.print(((1000 - testcount) * atoi(ble_scantime)));
-//   Serial.print(" secs(=");
-//   Serial.print(((1000 - testcount) * atoi(ble_scantime)) / 60);
-//   Serial.println(" mins)");
+   Serial.print("BLE Device3 MAC : ");
+   Serial.println(knownAddresses[2]); // should be same with blemac3
+   Serial.print("BLE Device4 MAC : ");
+   Serial.println(knownAddresses[3]); // should be same with blemac4 
+
    deviceFound = false;
+   deviceFoundNum = 0;
+   bleman1 = "";
+   bleman2 = "";
+   bleman3 = "";
+   bleman4 = "";
    BLEScanResults scanResults = pBLEScan->start(atoi(ble_scantime), false);
    pBLEScan->clearResults();
+   checkdevice();
+/*
     if (deviceFound) {
-        testfindtime++;
+      digitalWrite(LED, HIGH);
+      Serial.print("found ");
+      Serial.print(bleman1);
+      Serial.print(" ");
+      Serial.println(bleman2);
+      testfindtime++;
+      setupwifi();
+
+        //send message to MQTT server
+        if (bleman1 == PAYLOAD1 && bleman2 == PAYLOAD2){
+        connectMQTT();
+        client.publish(TOPIC, PAYLOAD1, false);
+        delay(100);
+        client.publish(TOPIC, PAYLOAD0, false);
+        delay(100);
+        client.publish(TOPIC, PAYLOAD2, false);
+        }
+        else if (bleman1 == PAYLOAD1){
+        connectMQTT();
+        client.publish(TOPIC, PAYLOAD1, false);
+        }
+        else if (bleman2 == PAYLOAD2){
+        connectMQTT();
+        client.publish(TOPIC, PAYLOAD2, false);
+        }
+
+        client.publish(TOPIC, PAYLOAD0, false);
+        delay(200);
+        client.disconnect();
+        Serial.println("Will restart next BLE Search");
+        WiFi.mode(WIFI_OFF);
+        Serial.println("Turn off WIFI"); 
+        delay(2000);
+        digitalWrite(LED, LOW);
      } 
      else {
-          Serial.println("not found");  
-     }
-
+          Serial.println("not found BLE device");  
+     } 
+*/
    Serial.print("testmode checktime : ");
    Serial.println(testcount);
    Serial.print("testmode findtime : ");
    Serial.println(testfindtime);
    Serial.print("BLE find success % : ");
    Serial.print((float(testfindtime) / float(testcount)) * 100 );
-   Serial.println(" %"); 
+   Serial.println(" %");
    testcount++;
+   checkconsole();
+   //find delay time  
+   if (deviceFoundNum > 0 && testmode != 0) {
+        Serial.println("Waiting for 30 secs for next search");
+        delay(30000);
    }
-   
-   while (WiFi.status() != WL_CONNECTED) {
-      iotWebConf.doLoop();
-      delay(100);
-     }   
-   connectMQTT();
-   String testfindtimes = String((float(testfindtime) / float(testcount)) * 100);
-   char testfindtimes2[testfindtimes.length()+1];
-   testfindtimes.toCharArray(testfindtimes2,testfindtimes.length()+1);
-   client.publish(ESPtestmodeTOPIC, testfindtimes2, false);
-   delay(100);
-   client.disconnect();
-   testmode = false;
-   Serial.println("Finishing BLE testmode");
-   delay(100);
-   ESP.restart();
+  }
+  //setupwifi();
 }
 
  //ota
+ // setupwifi();
+/*
+ if (testmode == 0 ){
+ digitalWrite(CONFIG_PIN, HIGH);
+ delay(500);
  iotWebConf.doLoop();
-
+ delay(500);
+ digitalWrite(CONFIG_PIN, LOW);
+ }
+*/ 
+ iotWebConf.doLoop();
+    
 //webrelay,set state = action
 action = server.arg("action");
 if (action.equals("off"))    
@@ -439,26 +657,23 @@ if (action.equals("off"))
   
 //BLE scan switch notify 如果網路沒連線的話通知使用者到網頁設定
 if (notifysw && WiFi.status() == WL_CONNECTED && state == LOW )
-{
+{   
+    delay(1500);
     Serial.println("");
     Serial.println("");
-    Serial.print("You need turn on BLE scan in ");
+    Serial.print("You can config in ");
     Serial.print("http://");
     Serial.println(WiFi.localIP());
     notifysw = LOW;
     delay(100);
 }
-   
+
+/*
  //BLE Device Searching loop after wifi was connect and state ==HIGH 連線wifi並且state為HIGH才執行BLE Scan避免ESP回應卡住
  // The if function will run after finishing config in web
  if (WiFi.status() == WL_CONNECTED && state == HIGH) {
  Serial.println();
 
- //save value
-//total_runcount = EEPROM.read(191);
-//total_findtime = EEPROM.read(192);
-// Serial.println(total_runcount);
-// Serial.println(total_findtime);
   String ipaddress = WiFi.localIP().toString();
   char ipchar[ipaddress.length()+1];
   ipaddress.toCharArray(ipchar,ipaddress.length()+1);
@@ -467,43 +682,17 @@ if (notifysw && WiFi.status() == WL_CONNECTED && state == LOW )
   String(myTZ.dateTime("Y-m-d H:i:s")).toCharArray(time2,String(myTZ.dateTime("Y-m-d H:i:s")).length()+1);
   strcat( time2, " : " );
   strcat( time2, ipchar );
- 
+ Serial.println("BLE+WIFI mode");  
  Serial.println(time2);
  Serial.print("Free memory : "); 
- Serial.print(int(ESP.getFreeHeap()) - 43500);
+ Serial.print(int(ESP.getFreeHeap()) - 45000);
  Serial.println(" ,reboot when Free memory < 0");
- 
-/*
- Serial.println(EEPROM.read(193));
- Serial.println(EEPROM.read(194));
- Serial.println(EEPROM.read(195));
- Serial.println(EEPROM.read(196));
- Serial.println(EEPROM.read(197));
- Serial.println(EEPROM.read(198));
- Serial.println(EEPROM.read(199));
- Serial.println(EEPROM.read(200));
-*/ 
 
  Serial.print("BLE Device1 MAC : ");
  Serial.println(knownAddresses[0]); // should be same with blemac1
  Serial.print("BLE Device2 MAC : ");
  Serial.println(knownAddresses[1]); // should be same with blemac2
 
- /*
-Serial.print("mqtt_status: '");
-Serial.print(client.state());
-Serial.println("' , 0 is 'mqtt server connected'");
--4 : MQTT_CONNECTION_TIMEOUT - the server didn't respond within the keepalive time
--3 : MQTT_CONNECTION_LOST - the network connection was broken
--2 : MQTT_CONNECT_FAILED - the network connection failed
--1 : MQTT_DISCONNECTED - the client is disconnected cleanly
-0 : MQTT_CONNECTED - the client is connected
-1 : MQTT_CONNECT_BAD_PROTOCOL - the server doesn't support the requested version of MQTT
-2 : MQTT_CONNECT_BAD_CLIENT_ID - the server rejected the client identifier
-3 : MQTT_CONNECT_UNAVAILABLE - the server was unable to accept the connection
-4 : MQTT_CONNECT_BAD_CREDENTIALS - the username/password were rejected
-5 : MQTT_CONNECT_UNAUTHORIZED - the client was not authorized to connect
-  */
  deviceFound = false; 
  // start BLE Scan
  BLEScanResults scanResults = pBLEScan->start(atoi(ble_scantime), false);
@@ -513,42 +702,59 @@ Serial.println("' , 0 is 'mqtt server connected'");
   client.loop();
 //find device mac in list 如果BLE Scan有找到指定裝置的MAC，且訊號強度大於設定值，進行MQTT publish步驟
   if (deviceFound) {
+    digitalWrite(LED, HIGH);
     Serial.print("found ");
-    Serial.println(bleman);
+    Serial.print(bleman1);
+    Serial.print(" ");
+    Serial.println(bleman2);
+
 //send message to MQTT server
-  if (bleman == PAYLOAD1){
+  if (bleman1 == PAYLOAD1 && bleman2 == PAYLOAD2){
+  connectMQTT();
+  client.publish(TOPIC, PAYLOAD1, false);
+  delay(100);
+  client.publish(TOPIC, PAYLOAD0, false);
+  delay(100);
+  client.publish(TOPIC, PAYLOAD2, false);
+  }
+  else if (bleman1 == PAYLOAD1){
   connectMQTT();
   client.publish(TOPIC, PAYLOAD1, false);
   }
-  if (bleman == PAYLOAD2){
+  else if (bleman2 == PAYLOAD2){
   connectMQTT();
   client.publish(TOPIC, PAYLOAD2, false);
   }
-      digitalWrite(LED, HIGH);
-      delay(500);
-      digitalWrite(LED, LOW);
-      client.publish(TOPIC, PAYLOAD3, false);
+//      digitalWrite(LED, HIGH);
+//      delay(500);
+//      digitalWrite(LED, LOW);
+      client.publish(TOPIC, PAYLOAD0, false);
       delay(200);
       client.disconnect();
       Serial.println("Will restart next BL Search");
       findtime++;
+      delay(2000);
+      digitalWrite(LED, LOW);
+      Serial.println("Waiting for 120 secs");
+      delay(120000);
    } 
    else {
       // The else function will run after finishing config in web
       Serial.println("not found!");
       }
-      if ((runcount % 100) == 0 || runcount == 0){
-          Serial.println("ESP32_BLE alive");
+      if ((runcount % 100) == 0 && testmode !=0 ){
+          //Serial.println("ESP32_BLE alive");
           connectMQTT();
           //Set the time+ip to mqtt topic "ESPipTOPIC"
           client.publish(ESPipTOPIC, time2, false);
           delay(100);
           client.publish(TOPIC, "ESP32_BLE alive", false);
           delay(100);
-          client.publish(TOPIC, PAYLOAD3, false);         
-          delay(100);  
+          client.publish(TOPIC, PAYLOAD0, false);         
+          delay(100); 
           client.disconnect();
-          //needReset = true;
+          Serial.println("ESP32_BLE alive");
+          Serial.println("Send MQTT...done");     
         }
       Serial.print("BLE scantime : ");
       Serial.println(runcount);
@@ -562,15 +768,7 @@ Serial.println("' , 0 is 'mqtt server connected'");
       Serial.println(" sec");
       runcount++;
    }
-
-/*   
-//save value   
-   if ( runcount == 240 && (total_runcount < runcount || total_findtime < findtime) ){
-      EEPROM.write(191, runcount);
-      EEPROM.write(192, findtime);
-      EEPROM.commit();
-      }
-*/      
+*/     
 }
 
 /*
@@ -587,34 +785,71 @@ void callback(char* topic, byte* payload, unsigned int length) {
 */
 
 void connectMQTT() {
+  if (testmode != 0 ){
   String mqtt_clientid  =  String(iotWebConf.getThingName()) + "-";
   mqtt_clientid += String(random(0xffff), HEX);
   // Loop until we're reconnected
   if (!client.connected()) {
-    Serial.print("Attempting MQTT connection...");
+    Serial.print("Connecting MQTT..........");
       if (client.connect(mqtt_clientid.c_str(), mqtt_user, mqtt_password)){
     //if (client.connect(mqtt_clientid, mqtt_user, mqtt_password)){
       Serial.println("connected");
     } else {
       Serial.print("connect mqtt server failed, mqtt state is : ");
       Serial.println(client.state());
-/*
-      digitalWrite(LED, HIGH);
-      delay(50);
-      digitalWrite(LED, LOW);
-      delay(50);    
-      digitalWrite(LED, HIGH);
-      delay(50);
-      digitalWrite(LED, LOW);
-      delay(50);
-      digitalWrite(LED, HIGH);
-      delay(50);
-      digitalWrite(LED, LOW);
-*/      
+      Serial.println("");
+      Serial.println("");
+      Serial.println("-4 : MQTT_CONNECTION_TIMEOUT - the server didn't respond within the keepalive time");
+      Serial.println("-3 : MQTT_CONNECTION_LOST - the network connection was broken");
+      Serial.println("-2 : MQTT_CONNECT_FAILED - the network connection failed");
+      Serial.println("-1 : MQTT_DISCONNECTED - the client is disconnected cleanly");
+      Serial.println("0 : MQTT_CONNECTED - the client is connected");
+      Serial.println("1 : MQTT_CONNECT_BAD_PROTOCOL - the server doesn't support the requested version of MQTT");
+      Serial.println("2 : MQTT_CONNECT_BAD_CLIENT_ID - the server rejected the client identifier");
+      Serial.println("3 : MQTT_CONNECT_UNAVAILABLE - the server was unable to accept the connection");
+      Serial.println("4 : MQTT_CONNECT_BAD_CREDENTIALS - the username/password were rejected");
+      Serial.println("5 : MQTT_CONNECT_UNAUTHORIZED - the client was not authorized to connect");
+      Serial.println("");
+      Serial.println("");
       }
     }
   }
+}
 
+//setupwifi
+void setupwifi()
+{
+      if (WiFi.status() != WL_CONNECTED && testmode != 0) {
+      WiFi.mode(WIFI_STA);
+      WiFi.begin(iotWebConf.getWifiSsid(), iotWebConf.getWifiPassword());
+      Serial.println("");
+      Serial.print("Connecting wifi");
+      int i=0;
+      while (WiFi.status() != WL_CONNECTED && testmode != 0) {
+        delay(100);
+        checkconsole();
+        Serial.print(".");
+        i++;
+        //Reconnect wifi after 2 sec,reboot ESP if can not connect wifi after 4.5 sec
+        if (i == 25 && testmode != 0 ){
+         Serial.println("");
+         Serial.println("Reconnecting wifi");
+         WiFi.mode(WIFI_STA);
+         WiFi.begin(iotWebConf.getWifiSsid(), iotWebConf.getWifiPassword());
+        }
+        if (i == 45 && testmode != 0 ){
+           Serial.println("Connecting wifi fail, ESP restart");
+           delay(100);
+           ESP.restart();
+        }
+       }
+       if (WiFi.status() == WL_CONNECTED){
+       Serial.println("connected");
+       blinkled();
+       }
+      }
+}
+        
 //ota
 void handleRoot()
 {
@@ -644,62 +879,65 @@ void handleRoot()
     {
       needReset = true;
     }    
-    else if (action.equals("testmode"))
-    {
-      testmode = true;
-    }    
+//    else if (action.equals("testmode"))
+//    {
+//      testmode = true;
+//    }    
     
   }
-/*  
-//NTP2
-  String ipaddress; //send ESPip to MQTT
-  String time1; //ESP32 time
-  ipaddress = WiFi.localIP().toString();
-  char ipchar[ipaddress.length()+1];
-  ipaddress.toCharArray(ipchar,ipaddress.length()+1);
-  time1 = String(myTZ.dateTime("Y-m-d H:i:s"));
-  char time2[time1.length()+1];
-  time1.toCharArray(time2,time1.length()+1);
-  strcat( time2, " : " );
-  strcat( time2, ipchar );
-*/    
+
 //TOPIC
 //String mqtt_clientid  =  String(iotWebConf.getThingName()) + "-";
 //mqtt_clientid += String(random(0xffff), HEX);
 //char* TOPIC;
 //char* ESPipTOPIC;
 //char* ESPtestmodeTOPIC;
+//Serial.println("3");
+//Serial.println(TOPIC);
+//Serial.println(ESPipTOPIC);
 String ESPname1 = "/" + String(iotWebConf.getThingName()) + "/ble";
 String ESPname2 = "/" + String(iotWebConf.getThingName()) + "/ble/ip";
-String ESPname3 = "/" + String(iotWebConf.getThingName()) + "/ble/testmode_success_rate";
-char ESPname4[ESPname1.length()+1];
-char ESPname5[ESPname2.length()+1];
-char ESPname6[ESPname3.length()+1];
-ESPname1.toCharArray(ESPname4,ESPname1.length()+1);
-ESPname2.toCharArray(ESPname5,ESPname2.length()+1);
-ESPname3.toCharArray(ESPname6,ESPname3.length()+1);
-TOPIC = ESPname4;
-ESPipTOPIC = ESPname5;
-ESPtestmodeTOPIC = ESPname6;
+char ESPname3[ESPname1.length()+1];
+char ESPname4[ESPname2.length()+1];
+ESPname1.toCharArray(ESPname3,ESPname1.length()+1);
+ESPname2.toCharArray(ESPname4,ESPname2.length()+1);
+char* TOPIC = ESPname3;
+char* ESPipTOPIC = ESPname4;
+//Serial.println(TOPIC);
+//Serial.println(ESPipTOPIC);
 
+/*
+Serial.println("3");
+setTopic();
+Serial.println(TOPIC);
+Serial.println(ESPipTOPIC);
+Serial.println(ESPtestmodeTOPIC);
+*/
+
+  int l1 = server.arg(mqtt_server_arg.getId()).length();
   float success1 = (float(findtime) / float(runcount)) * 100 ;  
   String s = "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/>";
 //  s += FPSTR(IOTWEBCONF_HTTP_STYLE);
 //  s += "<title>ESP32_BLE scanner with iotWebConf</title><meta http-equiv='refresh' content='120' ></head>";
-  s += "<title>ESP32_BLE scanner with iotWebConf</title></head>";
+  s += "<title>ESP32_BLE scanner</title></head>";
   s += "<body>";
   s += iotWebConf.getThingName();
+  s += "    ";
+  s += "<button type='button' onclick=\"location.href='?action=reboot';\" >Reboot</button>";
   s += "<br>";
-  s += "version:";
-  s += CONFIG_VERSION;
+  s += "version:20190327";
+//  s += CONFIG_VERSION;
   s += "<br>";
-  s += "<a href='https://bbs.hassbian.com/thread-6472-1-1.html'>Follow discuss now</a>";
+  s += "<a href='https://bbs.hassbian.com/thread-6670-1-1.html'>Follow discuss now</a>";
+  s += "<br>";
+  s += "<a href='https://bbs.hassbian.com/thread-6472-1-1.html'>old version</a>";
   s += "<br>";
   s += " FreeMemory : ";
-  s += int(ESP.getFreeHeap()) - 43500;
+  s += int(ESP.getFreeHeap()) - 45000;
   s += "<div>BLE Scan State : ";
   s += (state == HIGH ? "ON" : "OFF");
   s += "</div>";
+/*
   s += "<div>BLE check times : ";
   s += runcount;
   s += "</div>";
@@ -710,13 +948,18 @@ ESPtestmodeTOPIC = ESPname6;
   s += "<div>BLE find success % : ";
   s += success1;
   s += " %</div>";  
+*/  
   s += "<div>upTime : ";
   s += time1;
   s += "<br>";
   s += "</div>";
+  s += "<div>RunTime : ";
+  s += float(millis() / (1000 * 60));
+  s += " mins</div>";
   s += "<div>Clock : ";
   s += myTZ.dateTime("Y-m-d H:i:s");
 //  s += "<br>auto Refresh in 120 secs<br>";
+/*
   s += "<div>";
   s += "<button type='button' onclick=\"location.href='?action=on';\" >Turn ON</button>";
   s += " ";
@@ -724,11 +967,14 @@ ESPtestmodeTOPIC = ESPname6;
   s += " ";
   s += "<button type='button' onclick=\"location.href='?';\" >Refresh</button>";
   s += "</div>";
+*/  
+/*
   s += "<div>";
   s += "<br><button type='button' onclick=\"location.href='?action=reboot';\" >Reboot</button>";
 //  s += " ";
 //  s += "<button type='button' onclick=\"location.href='?action=testmode';\" >Enter BLE TestMode</button>";
   s += "</div>"; 
+*/  
   s += "<br>";
 //  s += "<div>";
 //  s += "BLE TestMode will turn off wifi and force BLE scan only. After finish it will send find success % to MQTT server then reboot ESP32_BLE";
@@ -737,29 +983,37 @@ ESPtestmodeTOPIC = ESPname6;
 //  s += (float(testfindtime) / float(testcount)) * 100;
 //  s += "</div>"; 
 //  s += "<br>";
-  s += "<div>";
+  s += "<div><br>";
+  if (l1 > 1) {  
   s += "<button type='button' onclick=\"location.href='config?action=off';\">Config</button> <button type='button' onclick=\"location.href='firmware?action=off';\" >Firmware</button>";
+  }
+  if (l1 < 1) {
+  s += "<button type='button' onclick=\"location.href='config';\">Config</button> <button type='button' onclick=\"location.href='firmware';\" >Firmware</button><button type='button' onclick=\"location.href='?';\" >Refresh</button>";
+  }
   s += "</div>";
+/*
   s += "<br>";
   s += "<b>The BLE Scan state will turn OFF when you enter config/firmware webpage, please turn on it again if you do not config anything</b><br>";
   s += "";
   s += ch[3];
+*/
   s += "<br>";
 //  s += "This is BLE device scanner webconfig page, go to  to upload ESP32 firmware.<br>";
 //  s += ch[0];
   s += "";
 //only show in initial config  
-  int l1 = server.arg(mqtt_server_arg.getId()).length();
-  if (l1 > 1)
+  if (l1 < 1)
   {
   s += "<br><b>You shuould change the default ESP32_BLE AP password after flashing .bin</b> or your esp will stop connect wifi when you reboot.<br>";
   s += ch[1];
   }
 //  s += "<br>You can use 'esptool.exe --port COM4 erase_flash' to clean ESP32 value.<br>";
 //  s += ch[2];
-  s += "<br>";
+  s += "<br><br>";
   s += "====================ESP32 configurable values====================";
   s += "<ul>";
+//  s += "<li>SearchMode:";
+//  s += testmode;    
   s += "<li>MQTT_server: ";
   s += mqtt_server;
   s += "<li>MQTT_user: ";
@@ -774,6 +1028,8 @@ ESPtestmodeTOPIC = ESPname6;
   s += ESPipTOPIC;
 //  s += "<li>MQTT ESP testmode TPOIC: ";
 //  s += ESPtestmodeTOPIC;
+  s += "<li>MQTT checking PAYLOAD0: ";  
+  s += PAYLOAD0;
   s += "<li>BLE Device1 MAC: ";
   s += knownAddresses[0];
 //  s += blemac1;
@@ -784,8 +1040,14 @@ ESPtestmodeTOPIC = ESPname6;
 //  s += blemac2;
   s += "<li>BLE Device2 PAYLOAD2: ";
   s += PAYLOAD2;
-  s += "<li>MQTT checking PAYLOAD3: ";  
+  s += "<li>BLE Device3 MAC: ";
+  s += knownAddresses[2];
+  s += "<li>BLE Device3 PAYLOAD3: ";
   s += PAYLOAD3;
+  s += "<li>BLE Device4 MAC: ";
+  s += knownAddresses[3];
+  s += "<li>BLE Device PAYLOAD4: ";
+  s += PAYLOAD4;
   s += "<li>MQTT port: ";
   s += "1883";
 //  s += atoi(mqtt_port);  
@@ -855,7 +1117,7 @@ boolean formValidator()
 //  int l11 = server.arg(ESPtestmodeTOPIC_arg.getId()).length();
   int l12 = server.arg(ble_scantime_arg.getId()).length();
   int l13 = server.arg(ble_rssi_arg.getId()).length();
-
+//  int l14 = server.arg(ESPmode_arg.getId()).length();
   if (l1 < 1)
   {
     mqtt_server_arg.errorMessage = "Please key at least 1 characters for this config!";
@@ -933,22 +1195,463 @@ boolean formValidator()
     ble_rssi_arg.errorMessage = "Please key at least 1 characters for this config!";
     valid = false;
   }
-
-
+/*
+  if (l14 < 1)
+  {
+    ESPmode_arg.errorMessage = "Please key at least 1 characters for this config!";
+    valid = false;
+  }
+*/
   return valid;
 }
 
 void blinkled()
 {
       digitalWrite(LED, HIGH);
-      delay(50);
+      delay(150);
       digitalWrite(LED, LOW);
-      delay(50);    
+      delay(150);
       digitalWrite(LED, HIGH);
-      delay(50);
+      delay(150);
       digitalWrite(LED, LOW);
-      delay(50);
+      delay(150);
       digitalWrite(LED, HIGH);
-      delay(50);
+      delay(150);
       digitalWrite(LED, LOW);
 }
+/*
+void setTopic()
+{
+String ESPname1 = "/" + String(iotWebConf.getThingName()) + "/ble";
+String ESPname2 = "/" + String(iotWebConf.getThingName()) + "/ble/ip";
+String ESPname3 = "/" + String(iotWebConf.getThingName()) + "/ble/testmode_success_rate";
+char ESPname4[ESPname1.length()+1];
+char ESPname5[ESPname2.length()+1];
+char ESPname6[ESPname3.length()+1];
+ESPname1.toCharArray(ESPname4,ESPname1.length()+1);
+ESPname2.toCharArray(ESPname5,ESPname2.length()+1);
+ESPname3.toCharArray(ESPname6,ESPname3.length()+1);
+TOPIC = ESPname4;
+ESPipTOPIC = ESPname5;
+ESPtestmodeTOPIC = ESPname6;
+//Serial.println(TOPIC);
+//Serial.println(ESPipTOPIC);
+//Serial.println(ESPtestmodeTOPIC);
+}
+*/
+
+void checkconsole()
+{
+String ESPname1 = "/" + String(iotWebConf.getThingName()) + "/ble";
+String ESPname2 = "/" + String(iotWebConf.getThingName()) + "/ble/ip";
+char ESPname3[ESPname1.length()+1];
+char ESPname4[ESPname2.length()+1];
+ESPname1.toCharArray(ESPname3,ESPname1.length()+1);
+ESPname2.toCharArray(ESPname4,ESPname2.length()+1);
+char* TOPIC = ESPname3;
+char* ESPipTOPIC = ESPname4;
+
+//console
+char fromSerial[32];
+String readfromSerial="";
+int readserial=0;
+int index = 0;
+    while (Serial.available() > 0) {
+        fromSerial[index] = Serial.read();
+        index++;
+        readserial = 1;
+    }
+    int i=0;
+    while(index > 0 ){
+    readfromSerial += String(fromSerial[i]);
+    //Serial.print(fromSerial[i]);
+    //Serial.print(readfromSerial);
+    index--;
+    i++;
+    }    
+    
+if(readfromSerial == "config"){
+
+    testmode = 0;
+    state = LOW;
+    notifysw = HIGH;
+    //setupwifi();
+    Serial.println("");
+    Serial.println("============================================");       
+    Serial.print("Console get input : ");
+    Serial.println(readfromSerial);
+    Serial.println("Stop BLE search, waiting for config in web.");
+    Serial.println("============================================");       
+    Serial.println("");
+    iotWebConf.doLoop();
+    }
+    
+  else if(readfromSerial == "configwifi"){
+    testmode = 0;
+    state = LOW;
+    notifysw = HIGH;
+    Serial.println("");
+    Serial.println("");
+    Serial.println("");
+    Serial.println("=========================================");
+    Serial.println("Enter Config mode");
+    Serial.println("");
+    Serial.println("key wifissid then press enter");
+    Serial.println("");
+
+String wifissid2;
+String password2;
+char fromSerial1[32];
+char fromSerial2[32];
+int readserial1 = 0;
+int readserial2 = 0;
+int index1 = 0;
+int index2 = 0;
+int show = 0;    
+while (WiFi.status() != WL_CONNECTED) {
+  if (readserial1 == 0){  
+    while (Serial.available() > 0) {
+        fromSerial1[index1] = Serial.read();
+        index1++;
+        readserial1 = 1;
+        if (show == 0){
+            Serial.println("key wifi password then press enter again");
+            Serial.println("=========================================");
+            Serial.println("");
+            show = 1;
+        }
+    }
+    int i=0;
+    while(index1 > 0 ){
+    wifissid2 += String(fromSerial1[i]);
+    index1--;
+    i++;
+    }
+ //  Serial.print("wifissid2:");  
+ //  Serial.println(wifissid2);         
+  }
+
+  if (readserial1 == 1 && readserial2 == 0 ){  
+    while (Serial.available() > 0) {
+        fromSerial2[index2] = Serial.read();
+        index2++;
+        readserial2 = 1;
+    }
+    int i=0;
+    while(index2 > 0 ){
+    password2 += String(fromSerial2[i]);
+    index2--;
+    i++;
+    }
+    iotWebConf.doLoop();
+//   Serial.print("password2:");  
+//   Serial.println(password2);                  
+  }
+  
+  if (readserial1 == 1 && readserial2 == 1){
+  char wifissid2c[wifissid2.length()+1];
+  wifissid2.toCharArray(wifissid2c,wifissid2.length()+1);
+  char password2c[password2.length()+1];
+  password2.toCharArray(password2c,password2.length()+1);
+   Serial.print("wifissid2c:");  
+   Serial.println(wifissid2c);         
+   Serial.print("password2c:");  
+   Serial.println(password2c);                  
+  Serial.print("Connecting new wifi");
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(wifissid2c, password2c);
+  while (WiFi.status() != WL_CONNECTED) {
+        delay(300);
+        Serial.print(".");
+        }
+  Serial.print("done");
+  Serial.println("");
+  Serial.print("ESP32 get ip : ");
+  Serial.println(WiFi.localIP());
+  Serial.println("====================="); 
+  }
+}
+
+  }
+
+/*
+  else if(readfromSerial == "reset"){
+    testmode = 0;
+    state = LOW;
+    notifysw = HIGH;
+    Serial.println(readfromSerial);
+    Serial.println("Reset config and enter wifi ap mode");
+  }    
+  else if(readfromSerial == "on"){
+    testmode = 2;
+    state = HIGH;
+    //setupwifi();
+  }
+ */
+  
+  else if(readfromSerial == "configmqtt"){
+    Serial.println("");
+    Serial.println("");
+    Serial.println("");
+    Serial.println("=========================================");
+    Serial.println("Enter Config mode");
+    Serial.println("");
+    Serial.println("key new mqtt server then press enter");
+    Serial.println("");
+
+String mqtt_server2;
+String mqtt_user2;
+String mqtt_password2;
+
+char fromSerial1[32];
+char fromSerial2[32];
+char fromSerial3[32];
+
+int readserial1 = 0;
+int readserial2 = 0;
+int readserial3 = 0;
+
+int index1 = 0;
+int index2 = 0;
+int index3 = 0;
+
+int show = 0;
+int show2 = 0;
+  
+while (!client.connected()) {
+  if (readserial1 == 0){  
+    while (Serial.available() > 0) {
+        fromSerial1[index1] = Serial.read();
+        index1++;
+        readserial1 = 1;
+        if (show == 0){
+            Serial.println("key new mqtt user then press enter again");
+            Serial.println("");
+            show = 1;
+        }
+    }
+    int i=0;
+    while(index1 > 0 ){
+    mqtt_server2 += String(fromSerial1[i]);
+    index1--;
+    i++;
+    }
+ //  Serial.print("wifissid2:");  
+ //  Serial.println(wifissid2);         
+  }
+
+  if (readserial1 == 1 && readserial2 == 0 && readserial3 == 0 ){  
+    while (Serial.available() > 0) {
+        fromSerial2[index2] = Serial.read();
+        index2++;
+        readserial2 = 1;
+            if (show2 == 0){
+            Serial.println("key new mqtt password then press enter again");
+            Serial.println("=========================================");
+            Serial.println("");
+            show2 = 1;
+        }
+    }
+    int i=0;
+    while(index2 > 0 ){
+    mqtt_user2 += String(fromSerial2[i]);
+    index2--;
+    i++;
+    }
+    //iotWebConf.doLoop();           
+  }
+
+    if (readserial1 == 1 && readserial2 == 1 && readserial3 == 0 ){  
+    while (Serial.available() > 0) {
+        fromSerial3[index3] = Serial.read();
+        index3++;
+        readserial3 = 1;
+    }
+    int i=0;
+    while(index3 > 0 ){
+    mqtt_password2 += String(fromSerial3[i]);
+    index3--;
+    i++;
+    }        
+  }
+
+  
+  if (readserial1 == 1 && readserial2 == 1 && readserial3 == 1 ){
+/*
+   Serial.print("new mqtt server:");  
+   Serial.println(mqtt_server2); 
+   Serial.print("new mqtt user:");  
+   Serial.println(mqtt_user2); 
+   Serial.print("new mqtt password:");  
+   Serial.println(mqtt_password2); 
+   Serial.println(""); 
+   Serial.print("old mqtt server:");  
+   Serial.println(mqtt_server); 
+   Serial.print("old mqtt user:");  
+   Serial.println(mqtt_user); 
+   Serial.print("old mqtt password:");  
+   Serial.println(mqtt_password); 
+*/
+   mqtt_server2.toCharArray(mqtt_server, 96);
+   mqtt_user2.toCharArray(mqtt_user, 96);
+   mqtt_password2.toCharArray(mqtt_password, 96);
+   Serial.println(""); 
+   Serial.print("get new mqtt server:");  
+   Serial.println(mqtt_server); 
+   Serial.print("get new mqtt user:");  
+   Serial.println(mqtt_user); 
+   Serial.print("get new mqtt password:");  
+   Serial.println(mqtt_password);
+   setupwifi(); 
+   connectMQTT();
+   client.publish(TOPIC, "ESP32_BLE alive", false);
+   delay(100);
+   client.publish(TOPIC, PAYLOAD0, false);
+   delay(100); 
+   client.publish(ESPipTOPIC, time2, false);
+   client.disconnect();
+   Serial.println("Test MQTT...done");   
+  /*  
+  char wifissid2c[wifissid2.length()+1];
+  wifissid2.toCharArray(wifissid2c,wifissid2.length()+1);
+  char password2c[password2.length()+1];
+  password2.toCharArray(password2c,password2.length()+1);
+   Serial.print("wifissid2c:");  
+   Serial.println(wifissid2c);         
+   Serial.print("password2c:");  
+   Serial.println(password2c);                  
+  Serial.print("Connecting new wifi");
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(wifissid2c, password2c);
+  while (WiFi.status() != WL_CONNECTED) {
+        delay(300);
+        Serial.print(".");
+        }
+  Serial.print("done");
+  Serial.println("");
+  Serial.print("ESP32 get ip : ");
+  Serial.println(WiFi.localIP());
+  Serial.println("====================="); 
+  }
+}
+*/
+
+/*    
+     Serial.print("Send mqtt packet for checking mqtt server....");
+     setupwifi();
+     String ipaddress = WiFi.localIP().toString();
+     char ipchar[ipaddress.length()+1];
+     ipaddress.toCharArray(ipchar,ipaddress.length()+1);
+     time1 = String(myTZ.dateTime("Y-m-d H:i:s"));
+     char time2[String(myTZ.dateTime("Y-m-d H:i:s")).length()+1];
+     String(myTZ.dateTime("Y-m-d H:i:s")).toCharArray(time2,String(myTZ.dateTime("Y-m-d H:i:s")).length()+1);
+     strcat( time2, " : " );
+     strcat( time2, ipchar );
+     connectMQTT();
+     client.publish(ESPipTOPIC, time2, false);
+     delay(100);
+     client.publish(TOPIC, "ESP32_BLE alive", false);
+     delay(100);
+     client.publish(TOPIC, PAYLOAD3, false);         
+     delay(100);
+     client.disconnect();
+     Serial.println("done");
+     Serial.println("");
+     */
+    }  
+   }
+  testmode = 0;
+  state = LOW;
+  notifysw = HIGH;
+  }
+  
+  else if(readfromSerial == "reboot" || readfromSerial == "reload" ){
+  Serial.println("");
+  Serial.println("============================");
+  Serial.println("Reboot ESP32....");
+  Serial.println("============================");
+  Serial.println("");
+  delay(100);
+  ESP.restart();  
+  }  
+}
+
+
+
+void checkdevice()
+{
+      if (deviceFoundNum > 0) {
+      String ESPname1 = "/" + String(iotWebConf.getThingName()) + "/ble";
+      String ESPname2 = "/" + String(iotWebConf.getThingName()) + "/ble/ip";
+      char ESPname3[ESPname1.length()+1];
+      char ESPname4[ESPname2.length()+1];
+      ESPname1.toCharArray(ESPname3,ESPname1.length()+1);
+      ESPname2.toCharArray(ESPname4,ESPname2.length()+1);
+      char* TOPIC = ESPname3;
+      char* ESPipTOPIC = ESPname4;  
+      
+      digitalWrite(LED, HIGH);
+      Serial.println("");
+      Serial.print("Found ");
+      Serial.print(deviceFoundNum);
+      Serial.println(" BLE device:");
+      if (bleman1 != ""){
+      Serial.println(bleman1);
+      }
+      if (bleman2 != ""){
+      Serial.println(bleman2);
+      }
+      if (bleman3 != ""){
+      Serial.println(bleman3);
+      }
+      if (bleman4 != ""){
+      Serial.println(bleman4);
+      }
+      testfindtime++;
+      setupwifi();
+      connectMQTT();
+
+        //send message to MQTT server
+        if (bleman1 == PAYLOAD1){
+        client.publish(TOPIC, PAYLOAD1, false);
+        delay(100);
+        client.publish(TOPIC, PAYLOAD0, false);
+        delay(200);
+        }
+        if (bleman2 == PAYLOAD2){
+        client.publish(TOPIC, PAYLOAD2, false);
+        delay(100);
+        client.publish(TOPIC, PAYLOAD0, false);
+        delay(200);
+        }
+        if (bleman3 == PAYLOAD3){
+        client.publish(TOPIC, PAYLOAD3, false);
+        delay(100);
+        client.publish(TOPIC, PAYLOAD0, false);
+        delay(200);
+        }
+        if (bleman4 == PAYLOAD4){
+        client.publish(TOPIC, PAYLOAD4, false);
+        delay(100);
+        client.publish(TOPIC, PAYLOAD0, false);
+        delay(200);
+        }        
+        client.disconnect();
+        Serial.println("Next BLE Search");
+
+        if (testmode != 0){
+        Serial.println("");   
+        WiFi.mode(WIFI_OFF);
+        Serial.println("**************Turn off WIFI**************"); 
+        Serial.println(""); 
+        }
+
+        delay(2000);
+        digitalWrite(LED, LOW);
+     } 
+     else {
+          Serial.println("No found BLE device");  
+     } 
+   
+}
+

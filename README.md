@@ -8,7 +8,8 @@ Refer list:
    
  I add some code to more easy using for mqtt sensor by windgo@gmail.com  
    
- [follow discuss link](https://bbs.hassbian.com/thread-6472-1-1.html)  
+ [follow discuss link](https://bbs.hassbian.com/thread-6670-1-1.html)  
+ [old version](https://bbs.hassbian.com/thread-6472-1-1.html)  
  HA is [home-assistant](https://www.home-assistant.io/)    
   
 ==Arduino編譯所需相關庫安裝==  
@@ -31,10 +32,9 @@ setup.mp4 : ESP32_BLE scanner setup video
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/miband_2.png)   
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/miband_3.png)   
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/oe_ibeacon.png)  
- 
-
-update 20190327
-1.由原本掃描時Wifi+BLE互相干擾導致搜尋率4成左右改成純BLE掃描，掃描成功率接近100%，掃到後再開啟Wifi發MQTT給Server  
+  
+update 20190327版本更新  
+1.由原本掃描時Wifi+BLE互相干擾導致搜尋率4成左右改成純BLE掃描，掃描成功率接近100%，掃到後再開啟Wifi發MQTT給Server    
 2.因為平常掃描時沒有Wifi，所以需要修改設定時，可以使用終端機或arduino console接入ESP32，手動使用指令開啟Wifi來設定  
 (可在console模式使用下列指令)  
 config: 開啟wifi,關閉BLE掃描,等待你連入網頁設定  

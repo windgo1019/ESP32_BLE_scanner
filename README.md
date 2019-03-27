@@ -31,3 +31,20 @@ setup.mp4 : ESP32_BLE scanner setup video
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/miband_2.png)   
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/miband_3.png)   
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/oe_ibeacon.png)  
+ 
+
+update 20190327
+1.由原本掃描時Wifi+BLE互相干擾導致搜尋率4成左右改成純BLE掃描，掃描成功率接近100%，掃到後再開啟Wifi發MQTT給Server  
+2.因為平常掃描時沒有Wifi，所以需要修改設定時，可以使用終端機或arduino console接入ESP32，手動使用指令開啟Wifi來設定  
+(可在console模式使用下列指令)  
+config: 開啟wifi,關閉BLE掃描,等待你連入網頁設定  
+configwifi: 如果你的無線網路環境變更，可使用此指令來輸入新的ssid與password  
+configmqtt: 如果你的MQTT server/user/password變更，可使用此指令來輸入新的設定(建議可直接網頁改)  
+reload或reboot: 重啟ESP  
+3.加入大量console訊息，方便觀察ESP32掃描訊息與除錯  
+4.支援最大同時四組BLE裝置掃描，並且在你設定的掃瞄時間到後，通知mqtt Server數值變動  
+(先前版本就算設定多台也只支援通知掃描到的第一台BLE裝置)  
+  
+![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/config.png)  
+![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/configwifi.png)   
+![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/reboot.png) 

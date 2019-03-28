@@ -357,7 +357,9 @@ char* ESPipTOPIC = ESPname4;
       while (WiFi.status() != WL_CONNECTED && testmode != 0) {
         delay(100);
         checkconsole();
+        if (testmode !=3){
         Serial.print(".");
+        }
         i++;
         //Try reconnect wifi every 10 secs
         if (i % 100 == 0 ){
@@ -371,23 +373,25 @@ char* ESPipTOPIC = ESPname4;
         }
        }
 
-       if (testmode != 0){
+       if (WiFi.status() == WL_CONNECTED && testmode != 0){
        Serial.println("connected");
        }
  }
+
+//make sure check console if no connect wifi 
  while (WiFi.status() != WL_CONNECTED && testmode != 0) {
   checkconsole();
   delay(100);
 }
 //  delay(100);
- if (testmode != 0) {
+ if (WiFi.status() == WL_CONNECTED && testmode != 0) {
   Serial.println("");
   Serial.print("ESP32 get ip : ");
   Serial.println(WiFi.localIP());  
 }
 
   blinkled();
-if (testmode !=0 ){  
+if (WiFi.status() == WL_CONNECTED && testmode !=0 ){  
 //NTP2
   waitForSync();
   myTZ.setLocation(F("Asia/Taipei"));
@@ -475,17 +479,9 @@ if (knownAddresses[0] !=blemac1 || knownAddresses[1] != blemac2 || knownAddresse
  knownAddresses[1] = blemac2;
  knownAddresses[2] = blemac3;
  knownAddresses[3] = blemac4;
-
 }  
 
-/*
-char* TOPIC;
-char* ESPipTOPIC;
-char* ESPtestmodeTOPIC;
-*/
-//Serial.println("2");
-//Serial.println(TOPIC);
-//Serial.println(ESPipTOPIC);
+
 String ESPname1 = "/" + String(iotWebConf.getThingName()) + "/ble";
 String ESPname2 = "/" + String(iotWebConf.getThingName()) + "/ble/ip";
 char ESPname3[ESPname1.length()+1];
@@ -1256,6 +1252,7 @@ char fromSerial[32];
 String readfromSerial="";
 int readserial=0;
 int index = 0;
+int show3 = 0;
     while (Serial.available() > 0) {
         fromSerial[index] = Serial.read();
         index++;
@@ -1417,7 +1414,7 @@ int index3 = 0;
 
 int show = 0;
 int show2 = 0;
-  
+
 while (!client.connected()) {
   if (readserial1 == 0){  
     while (Serial.available() > 0) {
@@ -1573,6 +1570,34 @@ while (!client.connected()) {
   Serial.println("");
   delay(100);
   ESP.restart();  
+  }
+  else if(readfromSerial != ""){
+    if (show3 == 0){
+    Serial.println("");
+    Serial.println(""); 
+    Serial.println("=======================================================");
+    Serial.println("");       
+    Serial.println("Please copy & paste all of your command to ESP32");
+    Serial.println("Command list:");
+    Serial.println("");           
+    Serial.println("config");
+    Serial.println("configwifi");
+    Serial.println("configmqtt");
+    Serial.println("reload");
+    Serial.println("");
+    Serial.println("=======================================================");      
+    Serial.println("");
+    Serial.println("");
+    testmode = 3;
+    }
+  }      
+  else if(readfromSerial != ""){
+    Serial.println("");
+    Serial.println("============================================");       
+    Serial.print("Console get input : ");
+    Serial.println(readfromSerial);
+    Serial.println("============================================");       
+    Serial.println("");
   }  
 }
 

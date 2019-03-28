@@ -1385,7 +1385,8 @@ while (WiFi.status() != WL_CONNECTED) {
     //setupwifi();
   }
  */
-  
+
+/*  
   else if(readfromSerial == "configmqtt"){
     Serial.println("");
     Serial.println("");
@@ -1474,7 +1475,7 @@ while (!client.connected()) {
 
   
   if (readserial1 == 1 && readserial2 == 1 && readserial3 == 1 ){
-/*
+
    Serial.print("new mqtt server:");  
    Serial.println(mqtt_server2); 
    Serial.print("new mqtt user:");  
@@ -1488,7 +1489,7 @@ while (!client.connected()) {
    Serial.println(mqtt_user); 
    Serial.print("old mqtt password:");  
    Serial.println(mqtt_password); 
-*/
+
    mqtt_server2.toCharArray(mqtt_server, 96);
    mqtt_user2.toCharArray(mqtt_user, 96);
    mqtt_password2.toCharArray(mqtt_password, 96);
@@ -1499,14 +1500,14 @@ while (!client.connected()) {
    Serial.println(mqtt_user); 
    Serial.print("get new mqtt password:");  
    Serial.println(mqtt_password);
-   setupwifi(); 
+   setupwifi();
+   client.setServer(mqtt_server, 1883); 
    connectMQTT();
    client.publish(TOPIC, "ESP32_BLE alive", false);
    delay(100);
    client.publish(TOPIC, PAYLOAD0, false);
    delay(100); 
    client.publish(ESPipTOPIC, time2, false);
-   client.disconnect();
    Serial.println("Test MQTT...done");   
   /*  
   char wifissid2c[wifissid2.length()+1];
@@ -1531,9 +1532,9 @@ while (!client.connected()) {
   Serial.println("====================="); 
   }
 }
-*/
 
-/*    
+
+    
      Serial.print("Send mqtt packet for checking mqtt server....");
      setupwifi();
      String ipaddress = WiFi.localIP().toString();
@@ -1554,14 +1555,15 @@ while (!client.connected()) {
      client.disconnect();
      Serial.println("done");
      Serial.println("");
-     */
+     
     }  
    }
+  client.disconnect(); 
   testmode = 0;
   state = LOW;
   notifysw = HIGH;
   }
-  
+*/  
   else if(readfromSerial == "reboot" || readfromSerial == "reload" ){
   Serial.println("");
   Serial.println("============================");
@@ -1582,8 +1584,8 @@ while (!client.connected()) {
     Serial.println("");           
     Serial.println("config");
     Serial.println("configwifi");
-    Serial.println("configmqtt");
-    Serial.println("reload");
+//    Serial.println("configmqtt");
+    Serial.println("reload or reboot");
     Serial.println("");
     Serial.println("=======================================================");      
     Serial.println("");

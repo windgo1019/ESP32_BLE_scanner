@@ -48,3 +48,7 @@ reload或reboot: 重啟ESP
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/config.png)  
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/configwifi.png)   
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/reboot.png) 
+![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/command.png)  
+![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/putty-1.png)  
+![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/putty-2.png)  
+![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/putty-3.png)  

@@ -330,6 +330,10 @@ char* ESPipTOPIC = ESPname4;
 // Serial.println(String(iotWebConf.getWifiSsid()).length());
 // Serial.println(String(iotWebConf.getWifiPassword()).length());
 
+  setupwifi_boot();
+
+
+/*
  if (String(iotWebConf.getWifiSsid()).length() < 1 ){  
    //WiFi.softAP(thingName, wifiInitialApPassword);
    while (String(iotWebConf.getWifiSsid()).length() < 1 ){
@@ -377,7 +381,7 @@ char* ESPipTOPIC = ESPname4;
        Serial.println("connected");
        }
  }
-
+*/
 //make sure check console if no connect wifi 
  while (WiFi.status() != WL_CONNECTED && testmode != 0) {
   checkconsole();
@@ -436,9 +440,9 @@ if (WiFi.status() == WL_CONNECTED && testmode !=0 ){
 void loop() {
   
 //reboot after configing 設定存檔或按鈕後重開ESP32
-  if (int(ESP.getFreeHeap() - 45000) < 0)
+  if (int(ESP.getFreeHeap()) - 45000 < 0)
   {
-    Serial.print("FreeMEM:");
+    Serial.print("FreeMEM: ");
     Serial.println(int(ESP.getFreeHeap() - 45000));
     Serial.print("needReset: ");
     Serial.println(needReset);
@@ -446,8 +450,6 @@ void loop() {
 //    Serial.println(int(ESP.getFreeHeap() - 45000));
     Serial.print("(needReset || int(ESP.getFreeHeap()) - 45000) < 0): ");
     Serial.println((needReset || int(ESP.getFreeHeap() - 45000) < 0));
-    Serial.print("needReset: ");
-    Serial.println(needReset);
     Serial.println("Less MEM rebooting after 1 second.");
     Serial.println("");
     delay(1000);
@@ -625,7 +627,12 @@ if (testmode == 2 ){
    //find delay time  
    if (deviceFoundNum > 0 && testmode != 0) {
         Serial.println("Waiting for 30 secs for next BLE search");
-        delay(30000);
+        int i = 0;
+        while (i <= 300 || testmode != 0){  
+        checkconsole();  
+        delay(100);
+        i ++;
+        }
    }
   }
   //setupwifi();
@@ -910,7 +917,7 @@ Serial.println(ESPipTOPIC);
 Serial.println(ESPtestmodeTOPIC);
 */
 
-  int l1 = server.arg(mqtt_server_arg.getId()).length();
+//  int l1 = server.arg(mqtt_server_arg.getId()).length();
   float success1 = (float(findtime) / float(runcount)) * 100 ;  
   String s = "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/>";
 //  s += FPSTR(IOTWEBCONF_HTTP_STYLE);
@@ -921,12 +928,12 @@ Serial.println(ESPtestmodeTOPIC);
   s += "    ";
   s += "<button type='button' onclick=\"location.href='?action=reboot';\" >Reboot</button>";
   s += "<br>";
-  s += "version:20190327";
+  s += "version:20190329";
 //  s += CONFIG_VERSION;
   s += "<br>";
   s += "<a href='https://bbs.hassbian.com/thread-6670-1-1.html'>Follow discuss now</a>";
   s += "<br>";
-  s += "<a href='https://bbs.hassbian.com/thread-6472-1-1.html'>old version</a>";
+  s += "<a href='https://bbs.hassbian.com/thread-6472-1-1.html'>old version link</a>";
   s += "<br>";
   s += " FreeMemory : ";
   s += int(ESP.getFreeHeap()) - 45000;
@@ -979,13 +986,13 @@ Serial.println(ESPtestmodeTOPIC);
 //  s += (float(testfindtime) / float(testcount)) * 100;
 //  s += "</div>"; 
 //  s += "<br>";
-  s += "<div><br>";
-  if (l1 > 1) {  
-  s += "<button type='button' onclick=\"location.href='config?action=off';\">Config</button> <button type='button' onclick=\"location.href='firmware?action=off';\" >Firmware</button>";
-  }
-  if (l1 < 1) {
-  s += "<button type='button' onclick=\"location.href='config';\">Config</button> <button type='button' onclick=\"location.href='firmware';\" >Firmware</button><button type='button' onclick=\"location.href='?';\" >Refresh</button>";
-  }
+  s += "<div>";
+//  if (String(iotWebConf.getWifiSsid()).length() > 1) {  
+//  s += "<button type='button' onclick=\"location.href='config?action=off';\">Config</button> <button type='button' onclick=\"location.href='firmware?action=off';\" >Firmware</button>";
+//  }
+//  if (String(iotWebConf.getWifiSsid()).length() < 1) {
+  s += "<button type='button' onclick=\"location.href='config';\">Config</button> <button type='button' onclick=\"location.href='firmware';\" >Firmware</button> <button type='button' onclick=\"location.href='?';\" >Refresh</button>";
+//  }
   s += "</div>";
 /*
   s += "<br>";
@@ -998,12 +1005,16 @@ Serial.println(ESPtestmodeTOPIC);
 //  s += ch[0];
   s += "";
 //only show in initial config  
-  if (l1 < 1)
+  if (String(iotWebConf.getWifiSsid()).length() < 1)
   {
   s += "<br><b>You shuould change the default ESP32_BLE AP password after flashing .bin</b> or your esp will stop connect wifi when you reboot.<br>";
   s += ch[1];
   }
-//  s += "<br>You can use 'esptool.exe --port COM4 erase_flash' to clean ESP32 value.<br>";
+  if (String(iotWebConf.getWifiSsid()).length() > 1)
+  {
+  s += "<br>If you want to config, the username / password are <b>admin / your ESP32_newpassword.</b><br>";
+  }  
+  s += "<br>If ESP32 FreeMemory < 0, ESP32 will reboot. Suggest 'Startup delay (seconds)' set to 0.<br>";
 //  s += ch[2];
   s += "<br><br>";
   s += "====================ESP32 configurable values====================";
@@ -1664,7 +1675,6 @@ void checkdevice()
         delay(200);
         }        
         client.disconnect();
-        Serial.println("Next BLE Search");
 
         if (testmode != 0){
         Serial.println("");   
@@ -1680,5 +1690,56 @@ void checkdevice()
           Serial.println("No found BLE device");  
      } 
    
+}
+
+void setupwifi_boot()
+{
+   if (String(iotWebConf.getWifiSsid()).length() < 1 ){  
+   //WiFi.softAP(thingName, wifiInitialApPassword);
+   while (String(iotWebConf.getWifiSsid()).length() < 1 ){
+     iotWebConf.doLoop();
+     checkconsole();
+  if (needReset || int(ESP.getFreeHeap()) < 45000 )
+    {
+    Serial.print("FreeMEM:");
+    Serial.println(int(ESP.getFreeHeap()));
+    Serial.print("needReset:");
+    Serial.println(needReset);
+    Serial.println("Rebooting after 1 second.");
+    Serial.println("");
+    delay(1000);
+    ESP.restart();
+    }
+   }
+ }
+// }
+ else {
+      Serial.print("1st time to connect wifi");
+      WiFi.mode(WIFI_STA);
+      WiFi.begin(iotWebConf.getWifiSsid(), iotWebConf.getWifiPassword());
+      int i=0;
+      while (WiFi.status() != WL_CONNECTED && testmode != 0) {
+        delay(100);
+        checkconsole();
+        if (testmode !=3){
+        Serial.print(".");
+        }
+        i++;
+        //Try reconnect wifi every 10 secs
+        if (i % 100 == 0 ){
+           WiFi.mode(WIFI_STA);
+           WiFi.begin(iotWebConf.getWifiSsid(), iotWebConf.getWifiPassword());
+        }
+        if (i == 601 ){
+           Serial.println("Connecting wifi fail, ESP restart");
+           delay(100);
+           ESP.restart();
+        }
+       }
+
+       if (WiFi.status() == WL_CONNECTED && testmode != 0){
+       Serial.println("connected");
+       }
+ }  
 }
 

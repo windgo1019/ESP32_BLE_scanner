@@ -392,10 +392,8 @@ char* ESPipTOPIC = ESPname4;
   Serial.println("");
   Serial.print("ESP32 get ip : ");
   Serial.println(WiFi.localIP());  
-}
-
   blinkled();
-if (WiFi.status() == WL_CONNECTED && testmode !=0 ){  
+
 //NTP2
   waitForSync();
   myTZ.setLocation(F("Asia/Taipei"));
@@ -423,18 +421,17 @@ if (WiFi.status() == WL_CONNECTED && testmode !=0 ){
     client.publish(TOPIC, PAYLOAD0, false);
     delay(100); 
     client.publish(ESPipTOPIC, time2, false);
+    delay(100); 
     client.disconnect();
-    Serial.println("ESP32_BLE alive");
+//    Serial.println("ESP32_BLE alive");
     if (client.connected()){
     Serial.println("Send MQTT...done");     
     }
 }
-//    Serial.println(); 
-//    Serial.println(); 
-//    Serial.println("Please connect the ESP32_BLE AP to config it!");
-    if (testmode != 0){ 
+
+//    if (testmode != 0){ 
 //    testmode = atoi(ESPmode);
-    }    
+//    }    
 }
 
 void loop() {
@@ -446,10 +443,8 @@ void loop() {
     Serial.println(int(ESP.getFreeHeap() - 45000));
     Serial.print("needReset: ");
     Serial.println(needReset);
-//    Serial.print("int(ESP.getFreeHeap() - 45000) < 0: ");
-//    Serial.println(int(ESP.getFreeHeap() - 45000));
-    Serial.print("(needReset || int(ESP.getFreeHeap()) - 45000) < 0): ");
-    Serial.println((needReset || int(ESP.getFreeHeap() - 45000) < 0));
+    Serial.print("(needReset || (int(ESP.getFreeHeap()) - 45000) < 0): ");
+    Serial.println((needReset || (int(ESP.getFreeHeap()) - 45000) < 0));
     Serial.println("Less MEM rebooting after 1 second.");
     Serial.println("");
     delay(1000);
@@ -458,16 +453,12 @@ void loop() {
 
   if (needReset)
   {
-    Serial.print("FreeMEM:");
+    Serial.print("FreeMEM: ");
     Serial.println(int(ESP.getFreeHeap() - 45000));
     Serial.print("needReset: ");
     Serial.println(needReset);
-//    Serial.print("int(ESP.getFreeHeap() - 45000) < 0: ");
-//    Serial.println(int(ESP.getFreeHeap() - 45000));
-    Serial.print("(needReset || int(ESP.getFreeHeap()) - 45000) < 0): ");
-    Serial.println((needReset || int(ESP.getFreeHeap() - 45000) < 0));
-    Serial.print("needReset: ");
-    Serial.println(needReset);
+    Serial.print("(needReset || (int(ESP.getFreeHeap()) - 45000) < 0): ");
+    Serial.println((needReset || (int(ESP.getFreeHeap()) - 45000) < 0));
     Serial.println("needReset rebooting after 1 second.");
     Serial.println("");
     delay(1000);
@@ -495,13 +486,6 @@ char* ESPipTOPIC = ESPname4;
 //Serial.println(TOPIC);
 //Serial.println(ESPipTOPIC);
 
-/*
-Serial.println("2");
-setTopic();
-Serial.println(TOPIC);
-Serial.println(ESPipTOPIC);
-Serial.println(ESPtestmodeTOPIC);
-*/
 checkconsole();
 
 //Enter testmode
@@ -544,7 +528,7 @@ if (testmode == 2 ){
      Serial.println("**************Turn off WIFI**************");
      Serial.println(""); 
      }
-     Serial.println("ESP32_BLE alive");
+//     Serial.println("ESP32_BLE alive");
      if (client.connected()){
      Serial.println("Send MQTT...done");     
      }     
@@ -574,47 +558,7 @@ if (testmode == 2 ){
    BLEScanResults scanResults = pBLEScan->start(atoi(ble_scantime), false);
    pBLEScan->clearResults();
    checkdevice();
-/*
-    if (deviceFound) {
-      digitalWrite(LED, HIGH);
-      Serial.print("found ");
-      Serial.print(bleman1);
-      Serial.print(" ");
-      Serial.println(bleman2);
-      testfindtime++;
-      setupwifi();
 
-        //send message to MQTT server
-        if (bleman1 == PAYLOAD1 && bleman2 == PAYLOAD2){
-        connectMQTT();
-        client.publish(TOPIC, PAYLOAD1, false);
-        delay(100);
-        client.publish(TOPIC, PAYLOAD0, false);
-        delay(100);
-        client.publish(TOPIC, PAYLOAD2, false);
-        }
-        else if (bleman1 == PAYLOAD1){
-        connectMQTT();
-        client.publish(TOPIC, PAYLOAD1, false);
-        }
-        else if (bleman2 == PAYLOAD2){
-        connectMQTT();
-        client.publish(TOPIC, PAYLOAD2, false);
-        }
-
-        client.publish(TOPIC, PAYLOAD0, false);
-        delay(200);
-        client.disconnect();
-        Serial.println("Will restart next BLE Search");
-        WiFi.mode(WIFI_OFF);
-        Serial.println("Turn off WIFI"); 
-        delay(2000);
-        digitalWrite(LED, LOW);
-     } 
-     else {
-          Serial.println("not found BLE device");  
-     } 
-*/
    Serial.print("testmode checktime : ");
    Serial.println(testcount);
    Serial.print("testmode findtime : ");
@@ -640,15 +584,6 @@ if (testmode == 2 ){
 
  //ota
  // setupwifi();
-/*
- if (testmode == 0 ){
- digitalWrite(CONFIG_PIN, HIGH);
- delay(500);
- iotWebConf.doLoop();
- delay(500);
- digitalWrite(CONFIG_PIN, LOW);
- }
-*/ 
  iotWebConf.doLoop();
     
 //webrelay,set state = action

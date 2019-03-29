@@ -26,7 +26,7 @@ setup.mp4 : ESP32_BLE scanner setup video
   
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/web1.png)   
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/web2.png)   
-![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/find.png)   
+![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/found.png)   
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/notfind.png)   
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/miband_1.png)   
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/miband_2.png)   
@@ -48,6 +48,7 @@ reload或reboot: 重啟ESP
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/config.png)  
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/configwifi.png)   
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/reboot.png) 
+![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/memory.png)  
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/command.png)  
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/putty-1.png)  
 ![image](https://raw.githubusercontent.com/windgo1019/ESP32_BLE_scanner/master/putty-2.png)  

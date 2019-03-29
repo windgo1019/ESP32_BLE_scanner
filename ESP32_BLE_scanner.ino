@@ -243,7 +243,7 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
         
         Serial.println(pServerAddress->toString().c_str());
         Serial.println("**********************************");
-        //advertisedDevice.getScan()->stop();
+         if (deviceFoundNum == 4) advertisedDevice.getScan()->stop();
       }
     }
 };
@@ -624,7 +624,7 @@ if (testmode == 2 ){
    checkconsole();
    //find delay time  
    if (deviceFoundNum > 0 && testmode != 0) {
-        Serial.println("Waiting for 30 secs for next search");
+        Serial.println("Waiting for 30 secs for next BLE search");
         delay(30000);
    }
   }
@@ -1617,7 +1617,7 @@ void checkdevice()
       char* TOPIC = ESPname3;
       char* ESPipTOPIC = ESPname4;  
       
-      digitalWrite(LED, HIGH);
+      //digitalWrite(LED, HIGH);
       Serial.println("");
       Serial.print("Found ");
       Serial.print(deviceFoundNum);
@@ -1673,8 +1673,8 @@ void checkdevice()
         Serial.println(""); 
         }
 
-        delay(2000);
-        digitalWrite(LED, LOW);
+        //delay(2000);
+        //digitalWrite(LED, LOW);
      } 
      else {
           Serial.println("No found BLE device");  

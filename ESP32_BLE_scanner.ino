@@ -92,6 +92,7 @@ char ble_rssi[NUMBER_LEN];
 //char ESPipTOPIC[STRING_LEN];
 //char ESPtestmodeTOPIC[STRING_LEN];
 //char ESPmode[NUMBER_LEN];
+char STOPmode[NUMBER_LEN];
 
 IotWebConf iotWebConf(thingName, &dnsServer, &server, wifiInitialApPassword, CONFIG_VERSION);
 //IotWebConfParameter stringParam = IotWebConfParameter("String param", "stringParam", stringParamValue, STRING_LEN);
@@ -119,6 +120,7 @@ IotWebConfParameter ble_rssi_arg = IotWebConfParameter("BLE_rssi(ex: -85)", "BLE
 //IotWebConfParameter ESPipTOPIC_arg = IotWebConfParameter("MQTT ESPip publish TOPIC(ex: /ESP32_BLE/ble/ip)", "MQTT ESPip publish TOPIC", ESPipTOPIC, STRING_LEN);
 //IotWebConfParameter ESPtestmodeTOPIC_arg = IotWebConfParameter("MQTT ESPtestmode success rate publish TOPIC(ex: /ESP32_BLE/ble/testmode_success_rate)", "MQTT ESPtestmode success rate publish TOPIC", ESPtestmodeTOPIC, STRING_LEN);
 //IotWebConfParameter ESPmode_arg = IotWebConfParameter("ESPmode(ex: 2)", "ESPmode", ESPmode, NUMBER_LEN, "number", "1:WIFI+BLE, 2:BLE", NULL, "min='1' max='2' step='1'");
+IotWebConfParameter STOPmode_arg = IotWebConfParameter("STOPmode(ex: 0)", "STOPmode", STOPmode, NUMBER_LEN, "number", "0:find 1 device then stop search, 1:find 4 devices then stop search", NULL, "min='0' max='1' step='1'");
 
 #include "BLEDevice.h"
 #include <WiFi.h>
@@ -243,7 +245,7 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
         
         Serial.println(pServerAddress->toString().c_str());
         Serial.println("**********************************");
-         if (deviceFoundNum == 4) advertisedDevice.getScan()->stop();
+         if (deviceFoundNum == 4 || (deviceFoundNum > 0 && atoi(STOPmode) == 0 )) advertisedDevice.getScan()->stop();
       }
     }
 };
@@ -314,6 +316,7 @@ char* ESPipTOPIC = ESPname4;
   iotWebConf.addParameter(&ble_scantime_arg);
   iotWebConf.addParameter(&ble_rssi_arg);
 //  iotWebConf.addParameter(&ESPmode_arg);    
+  iotWebConf.addParameter(&STOPmode_arg);    
   iotWebConf.setConfigSavedCallback(&configSaved);
   iotWebConf.setFormValidator(&formValidator);
   iotWebConf.getApTimeoutParameter()->visible = true;
@@ -572,10 +575,11 @@ if (testmode == 2 ){
    if (deviceFoundNum > 0 && testmode != 0) {
         Serial.println("Waiting for 30 secs for next BLE search");
         int i = 0;
-        while (i <= 300 || testmode != 0){  
+        while (i <= 300 && testmode != 0){  
         checkconsole();  
         delay(100);
         i ++;
+        //Serial.println(i);
         }
    }
   }
@@ -1000,7 +1004,10 @@ Serial.println(ESPtestmodeTOPIC);
   s += atoi(ble_rssi);
   s += ", find BLE device and rssi > ";
   s += atoi(ble_rssi);
-  s+= " then send MQTT";
+  s += " then send MQTT";
+  s+= "<li>STOPmode: ";
+  s += atoi(STOPmode);
+
 //  s += atoi(ble_rssi);  
   s += "</ul>";
 //  s += "<br>";
@@ -1060,6 +1067,8 @@ boolean formValidator()
   int l12 = server.arg(ble_scantime_arg.getId()).length();
   int l13 = server.arg(ble_rssi_arg.getId()).length();
 //  int l14 = server.arg(ESPmode_arg.getId()).length();
+  int l15 = server.arg(STOPmode_arg.getId()).length();
+
   if (l1 < 1)
   {
     mqtt_server_arg.errorMessage = "Please key at least 1 characters for this config!";
@@ -1144,6 +1153,11 @@ boolean formValidator()
     valid = false;
   }
 */
+  if (l15 < 1)
+  {
+    STOPmode_arg.errorMessage = "Please key at least 1 characters for this config!";
+    valid = false;
+  }
   return valid;
 }
 

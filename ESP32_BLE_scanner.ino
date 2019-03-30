@@ -165,6 +165,11 @@ const char* bleman1;    // bleman is the person was found
 const char* bleman2;    // bleman is the person was found
 const char* bleman3;    // bleman is the person was found
 const char* bleman4;    // bleman is the person was found
+int bleman1_rssi;
+int bleman2_rssi;
+int bleman3_rssi;
+int bleman4_rssi;
+
 int runcount = 1; // count how many time to scan ble device
 //int scantime = 1; //when scantime=100(no find ble device) , mqtt publish to server to know esp is alive
 //int total_runcount; // count scan ble device times
@@ -227,10 +232,10 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 
 //        if (strcmp(pServerAddress->toString().c_str(), knownAddresses[0].c_str()) == 0) bleman = PAYLOAD1;
 //        if (strcmp(pServerAddress->toString().c_str(), knownAddresses[1].c_str()) == 0) bleman = PAYLOAD2;
-        if (strcmp(pServerAddress->toString().c_str(), knownAddresses[0].c_str()) == 0) bleman1 = PAYLOAD1;
-        if (strcmp(pServerAddress->toString().c_str(), knownAddresses[1].c_str()) == 0) bleman2 = PAYLOAD2;
-        if (strcmp(pServerAddress->toString().c_str(), knownAddresses[2].c_str()) == 0) bleman3 = PAYLOAD3;
-        if (strcmp(pServerAddress->toString().c_str(), knownAddresses[3].c_str()) == 0) bleman4 = PAYLOAD4;
+        if (strcmp(pServerAddress->toString().c_str(), knownAddresses[0].c_str()) == 0) {bleman1 = PAYLOAD1;bleman1_rssi = advertisedDevice.getRSSI();}
+        if (strcmp(pServerAddress->toString().c_str(), knownAddresses[1].c_str()) == 0) {bleman2 = PAYLOAD2;bleman2_rssi = advertisedDevice.getRSSI();}
+        if (strcmp(pServerAddress->toString().c_str(), knownAddresses[2].c_str()) == 0) {bleman3 = PAYLOAD3;bleman3_rssi = advertisedDevice.getRSSI();}
+        if (strcmp(pServerAddress->toString().c_str(), knownAddresses[3].c_str()) == 0) {bleman4 = PAYLOAD4;bleman4_rssi = advertisedDevice.getRSSI();}
       }
       
       if (known) {
@@ -395,7 +400,6 @@ char* ESPipTOPIC = ESPname4;
   Serial.println("");
   Serial.print("ESP32 get ip : ");
   Serial.println(WiFi.localIP());  
-  blinkled();
 
 //NTP2
   waitForSync();
@@ -429,6 +433,7 @@ char* ESPipTOPIC = ESPname4;
 //    Serial.println("ESP32_BLE alive");
     if (client.connected()){
     Serial.println("Send MQTT...done");     
+  blinkled();
     }
 }
 
@@ -533,7 +538,8 @@ if (testmode == 2 ){
      }
 //     Serial.println("ESP32_BLE alive");
      if (client.connected()){
-     Serial.println("Send MQTT...done");     
+     Serial.println("Send MQTT...done");
+     blinkled();     
      }     
     }
        
@@ -558,6 +564,11 @@ if (testmode == 2 ){
    bleman2 = "";
    bleman3 = "";
    bleman4 = "";
+   bleman1_rssi = 0 ;
+   bleman2_rssi = 0;
+   bleman3_rssi = 0;
+   bleman4_rssi = 0;
+
    BLEScanResults scanResults = pBLEScan->start(atoi(ble_scantime), false);
    pBLEScan->clearResults();
    checkdevice();
@@ -572,6 +583,7 @@ if (testmode == 2 ){
    testcount++;
    checkconsole();
    //find delay time  
+/*
    if (deviceFoundNum > 0 && testmode != 0) {
         Serial.println("Waiting for 30 secs for next BLE search");
         int i = 0;
@@ -582,6 +594,7 @@ if (testmode == 2 ){
         //Serial.println(i);
         }
    }
+*/   
   }
   //setupwifi();
 }
@@ -736,6 +749,7 @@ void connectMQTT() {
       if (client.connect(mqtt_clientid.c_str(), mqtt_user, mqtt_password)){
     //if (client.connect(mqtt_clientid, mqtt_user, mqtt_password)){
       Serial.println("connected");
+      blinkled();
     } else {
       Serial.print("connect mqtt server failed, mqtt state is : ");
       Serial.println(client.state());
@@ -787,7 +801,6 @@ void setupwifi()
        }
        if (WiFi.status() == WL_CONNECTED){
        Serial.println("connected");
-       blinkled();
        }
       }
 }
@@ -1582,17 +1595,25 @@ void checkdevice()
       Serial.print("Found ");
       Serial.print(deviceFoundNum);
       Serial.println(" BLE device:");
-      if (bleman1 != ""){
-      Serial.println(bleman1);
+      if (bleman1 != "" && bleman1_rssi > atoi(ble_rssi)){
+      Serial.print(bleman1);
+      Serial.print(" rssi: ");
+      Serial.println(bleman1_rssi);
       }
-      if (bleman2 != ""){
-      Serial.println(bleman2);
+      if (bleman2 != ""  && bleman2_rssi > atoi(ble_rssi)){
+      Serial.print(bleman2);
+      Serial.print(" rssi: ");
+      Serial.println(bleman2_rssi);
       }
-      if (bleman3 != ""){
-      Serial.println(bleman3);
+      if (bleman3 != "" && bleman3_rssi > atoi(ble_rssi)){
+      Serial.print(bleman3);
+      Serial.print(" rssi: ");
+      Serial.println(bleman3_rssi);
       }
-      if (bleman4 != ""){
-      Serial.println(bleman4);
+      if (bleman4 != "" && bleman4_rssi > atoi(ble_rssi)){
+      Serial.print(bleman4);
+      Serial.print(" rssi: ");
+      Serial.println(bleman4_rssi);
       }
       testfindtime++;
       setupwifi();
